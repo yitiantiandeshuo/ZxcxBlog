@@ -7,7 +7,7 @@ import { adminPage, adminApi, authorize } from './admin.mjs';
 const response = (html, status = 200) => new Response(html, { status, headers: {'Content-Type':'text/html; charset=utf-8','X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','Content-Security-Policy':"default-src 'self'; img-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"} });
 const link = (path, label) => `<a href="${path}">${e(label)}</a>`;
 const tagLinks = post => { const tags = JSON.parse(post.tags || '[]'); return `<div class="chips">${post.category ? link('/category/' + encodeURIComponent(post.category), post.category) : ''}${tags.map(t=>link('/tag/'+encodeURIComponent(t), '#'+t)).join('')}</div>`; };
-const listing = posts => posts.length ? `<ul class="post-list">${posts.map(p=>`<li><time>${e((p.published_at || '').slice(0,10))}</time>${link('/post/'+encodeURIComponent(p.slug),p.title)}</li>`).join('')}</ul>` : '<p class="muted">这里暂时还没有文章。</p>';
+const listing = (posts, showExcerpt = false) => posts.length ? `<ul class="post-list">${posts.map(p=>`<li><time>${e((p.published_at || '').slice(0,10))}</time>${showExcerpt && p.excerpt ? `<span class="post-list-entry">${link('/post/'+encodeURIComponent(p.slug),p.title)}<span class="post-excerpt">${e(p.excerpt)}</span></span>` : link('/post/'+encodeURIComponent(p.slug),p.title)}</li>`).join('')}</ul>` : '<p class="muted">这里暂时还没有文章。</p>';
 function archiveListing(posts) {
   if (!posts.length) return listing(posts);
   const years = new Map();
@@ -92,18 +92,24 @@ export default { async fetch(request, env) {
       const slug = decodeURIComponent(path.slice(6));
       const p = await env.DB.prepare("SELECT * FROM posts WHERE slug = ? AND status = 'published'").bind(slug).first();
       if (!p) return response(layout(env,'<h1>文章不存在</h1>'),404);
+      // Bounded lookups keep the public reading order consistent with the archive.
+      const date = p.published_at || '';
+      const neighborSql = direction => `SELECT slug,title FROM posts WHERE status = 'published' AND (COALESCE(published_at, '') ${direction === 'newer' ? '>' : '<'} ? OR (COALESCE(published_at, '') = ? AND id ${direction === 'newer' ? '>' : '<'} ?)) ORDER BY published_at ${direction === 'newer' ? 'ASC' : 'DESC'}, id ${direction === 'newer' ? 'ASC' : 'DESC'} LIMIT 1`;
+      const [newer, older] = await Promise.all(['newer','older'].map(direction => env.DB.prepare(neighborSql(direction)).bind(date,date,p.id).first()));
+      const neighbors = newer || older ? `<nav class="post-neighbors" aria-label="相邻文章">${newer ? `<div><span>上一篇</span>${link('/post/'+encodeURIComponent(newer.slug),newer.title)}</div>` : '<div></div>'}${older ? `<div><span>下一篇</span>${link('/post/'+encodeURIComponent(older.slug),older.title)}</div>` : ''}</nav>` : '';
+      const updated = p.updated_at && p.published_at && p.updated_at.slice(0,10) > p.published_at.slice(0,10) ? ` · 更新于 <time datetime="${e(p.updated_at)}">${e(p.updated_at.slice(0,10))}</time>` : '';
       const headings = [];
       const content = markdown(p.content, {headingAnchors:true, onHeading: heading => { if (heading.level <= 4) headings.push(heading); }});
       const minLevel = Math.min(...headings.map(h=>h.level));
       const tocList = `<ol>${headings.map(h => `<li class="toc-indent-${h.level - minLevel}"><a href="#${encodeURIComponent(h.id)}">${e(h.label)}</a></li>`).join('')}</ol>`;
       const toc = headings.length > 1 ? `<details class="post-toc"><summary>文章目录</summary><nav class="post-toc-nav" aria-label="文章目录">${tocList}</nav></details>` : '';
       const sideToc = headings.length > 1 ? `<aside class="post-toc-side" aria-label="文章目录"><strong>文章目录</strong><nav class="post-toc-nav" aria-label="文章目录">${tocList}</nav></aside><script>${tocScript}</script>` : '';
-      return response(layout(env,`<article class="post"><div class="post-heading"><h1>${e(p.title)}</h1><p class="meta"><time datetime="${e(p.published_at || '')}">${e((p.published_at || '').slice(0,10))}</time></p>${tagLinks(p)}</div><div class="content post-content">${toc}${content}</div>${sideToc}<nav class="post-end-nav" aria-label="文章导航"><a href="/">← 返回首页</a><a href="#">返回顶部 ↑</a></nav></article>`,p.title));
+      return response(layout(env,`<article class="post"><div class="post-heading"><h1>${e(p.title)}</h1><p class="meta"><time datetime="${e(p.published_at || '')}">${e((p.published_at || '').slice(0,10))}</time>${updated}</p>${tagLinks(p)}</div><div class="content post-content">${toc}${content}</div>${sideToc}${neighbors}<nav class="post-end-nav" aria-label="文章导航"><a href="/">← 返回首页</a><a href="#">返回顶部 ↑</a></nav></article>`,p.title));
     }
     if (path === '/about') return response(layout(env,'<h1>关于</h1><div class="content"><p>你好，欢迎来到我的博客。</p><p>这里记录生活与思考。</p></div>','关于'));
     if (!['/','/archive','/topics','/search'].includes(path) && !path.startsWith('/category/') && !path.startsWith('/tag/')) return response(layout(env,'<h1>页面不存在</h1>'),404);
     const posts = await publicPosts(env);
-    if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><h2 class="home-posts-title"><a href="/archive">近期发布</a></h2>${listing(posts.slice(0,15))}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
+    if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><h2 class="home-posts-title"><a href="/archive">近期发布</a></h2>${listing(posts.slice(0,15), true)}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
     if (path === '/archive') return response(layout(env,`<h1>归档</h1>${archiveListing(posts)}`,'归档'));
     if (path === '/topics') {
       const categories = new Map(), tags = new Map();

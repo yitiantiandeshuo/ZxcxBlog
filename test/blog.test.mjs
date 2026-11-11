@@ -118,3 +118,26 @@ test('topic counts include published posts once per tag', async()=>{
   assert.match(query,/status = 'published'/);
   assert.match(html,/笔记 \(2\)/);assert.match(html,/#生活 \(2\)/);assert.match(html,/#代码 \(1\)/);
 });
+
+test('adjacent article navigation excludes drafts and follows archive ordering', async()=>{
+  const {DatabaseSync}=await import('node:sqlite');const {readFileSync}=await import('node:fs');
+  const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));
+  const put=db.prepare('INSERT INTO posts (id,slug,title,status,created_at,updated_at,published_at,excerpt) VALUES (?,?,?,?,?,?,?,?)');
+  put.run('a','old','Old','published','2026-01-01','2026-01-01','2026-01-01','');
+  put.run('b','middle','Middle','published','2026-01-01','2026-01-03','2026-01-02','A <safe> excerpt');
+  put.run('c','new','New','published','2026-01-01','2026-01-02','2026-01-02','');
+  put.run('d','secret','Secret','draft','2026-01-01','2026-01-03','2026-01-03','');
+  const DB={prepare(sql){let args=[];return {bind(...v){args=v;return this},async first(){return db.prepare(sql).get(...args)||null},async all(){return {results:db.prepare(sql).all(...args)}}}}};
+  try {
+    const page=await (await worker.fetch(new Request('https://blog.test/post/middle'),{...env,DB})).text();
+    assert.match(page,/上一篇<\/span><a href="\/post\/new">New<\/a>/);
+    assert.match(page,/下一篇<\/span><a href="\/post\/old">Old<\/a>/);
+    assert.match(page,/更新于 <time datetime="2026-01-03">2026-01-03/);
+    assert.doesNotMatch(page,/Secret/);
+    const first=await (await worker.fetch(new Request('https://blog.test/post/new'),{...env,DB})).text();
+    assert.doesNotMatch(first,/上一篇<\/span>/);assert.match(first,/下一篇<\/span><a href="\/post\/middle">/);
+    assert.doesNotMatch(first,/更新于/);
+    const home=await (await worker.fetch(new Request('https://blog.test/'),{...env,DB})).text();
+    assert.match(home,/A &lt;safe&gt; excerpt/);assert.doesNotMatch(home,/Secret/);
+  } finally {db.close()}
+});
