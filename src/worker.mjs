@@ -1,5 +1,6 @@
 import { css } from './style.mjs';
 import { themeScript } from './theme.mjs';
+import { tocScript } from './toc.mjs';
 import { escapeHtml as e, markdown } from './markdown.mjs';
 import { adminPage, adminApi, authorize } from './admin.mjs';
 
@@ -93,8 +94,11 @@ export default { async fetch(request, env) {
       if (!p) return response(layout(env,'<h1>文章不存在</h1>'),404);
       const headings = [];
       const content = markdown(p.content, {headingAnchors:true, onHeading: heading => { if (heading.level <= 4) headings.push(heading); }});
-      const toc = headings.length > 1 ? `<details class="post-toc"><summary>文章目录</summary><nav aria-label="文章目录"><ol>${headings.map(h => `<li class="toc-level-${h.level}"><a href="#${encodeURIComponent(h.id)}">${e(h.label)}</a></li>`).join('')}</ol></nav></details>` : '';
-      return response(layout(env,`<article class="post"><div class="post-heading"><h1>${e(p.title)}</h1><p class="meta"><time datetime="${e(p.published_at || '')}">${e((p.published_at || '').slice(0,10))}</time></p>${tagLinks(p)}</div><div class="content post-content">${toc}${content}</div><nav class="post-end-nav" aria-label="文章导航"><a href="/">← 返回首页</a><a href="#">返回顶部 ↑</a></nav></article>`,p.title));
+      const minLevel = Math.min(...headings.map(h=>h.level));
+      const tocList = `<ol>${headings.map(h => `<li class="toc-indent-${h.level - minLevel}"><a href="#${encodeURIComponent(h.id)}">${e(h.label)}</a></li>`).join('')}</ol>`;
+      const toc = headings.length > 1 ? `<details class="post-toc"><summary>文章目录</summary><nav class="post-toc-nav" aria-label="文章目录">${tocList}</nav></details>` : '';
+      const sideToc = headings.length > 1 ? `<aside class="post-toc-side" aria-label="文章目录"><strong>文章目录</strong><nav class="post-toc-nav" aria-label="文章目录">${tocList}</nav></aside><script>${tocScript}</script>` : '';
+      return response(layout(env,`<article class="post"><div class="post-heading"><h1>${e(p.title)}</h1><p class="meta"><time datetime="${e(p.published_at || '')}">${e((p.published_at || '').slice(0,10))}</time></p>${tagLinks(p)}</div><div class="content post-content">${toc}${content}</div>${sideToc}<nav class="post-end-nav" aria-label="文章导航"><a href="/">← 返回首页</a><a href="#">返回顶部 ↑</a></nav></article>`,p.title));
     }
     if (path === '/about') return response(layout(env,'<h1>关于</h1><div class="content"><p>你好，欢迎来到我的博客。</p><p>这里记录生活与思考。</p></div>','关于'));
     if (!['/','/archive','/topics','/search'].includes(path) && !path.startsWith('/category/') && !path.startsWith('/tag/')) return response(layout(env,'<h1>页面不存在</h1>'),404);
