@@ -7,7 +7,7 @@ import {adminApi} from '../src/admin.mjs';
 
 test('site settings require authorization and only selected images become public', async()=>{
   const db=new DatabaseSync(':memory:');
-  for (const file of ['0001_initial.sql','0002_site_settings.sql','0003_home_settings.sql','0004_display_settings.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
+  for (const file of ['0001_initial.sql','0002_site_settings.sql','0003_home_settings.sql','0004_display_settings.sql','0005_theme_navigation.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
   const DB={prepare(sql){const stmt=db.prepare(sql);let args=[];return {bind(...v){args=v;return this},async first(){return stmt.get(...args)||null},async all(){return {results:stmt.all(...args)}},async run(){const r=stmt.run(...args);return {meta:{changes:Number(r.changes)}}}}}};
   const a='11111111-1111-4111-8111-111111111111.png', b='22222222-2222-4222-8222-222222222222.png';
   const BUCKET={async head(key){return [a,b].includes(key)?{}:null},async get(key){return [a,b].includes(key)?{body:'image',size:5,writeHttpMetadata(h){h.set('content-type','image/png')}}:null}};
@@ -37,7 +37,7 @@ test('homepage options preserve existing settings and old forms cannot reset the
   const db=new DatabaseSync(':memory:');
   for(const file of ['0001_initial.sql','0002_site_settings.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
   db.prepare('INSERT INTO site_settings (id,title,description,avatar_url,icon_url) VALUES (1,?,?,?,?)').run('原站名','原简介','','');
-  for (const file of ['0003_home_settings.sql','0004_display_settings.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
+  for (const file of ['0003_home_settings.sql','0004_display_settings.sql','0005_theme_navigation.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
   db.prepare('INSERT INTO posts (id,slug,title,status,created_at,updated_at,published_at,excerpt) VALUES (?,?,?,?,?,?,?,?)').run('a','example','示例文章','published','2026','2026','2026-01-01','这是摘要');
   const DB={prepare(sql){const stmt=db.prepare(sql);let args=[];return {bind(...v){args=v;return this},async first(){return stmt.get(...args)||null},async all(){return {results:stmt.all(...args)}},async run(){return {meta:{changes:Number(stmt.run(...args).changes)}}}}}};
   const env={DB,BUCKET:{}};const request=(path,options={})=>new Request('https://blog.test'+path,options);
@@ -56,7 +56,7 @@ test('homepage options preserve existing settings and old forms cannot reset the
 
 test('display settings control the homepage and article metadata without exposing drafts', async()=>{
   const db=new DatabaseSync(':memory:');
-  for(const file of ['0001_initial.sql','0002_site_settings.sql','0003_home_settings.sql','0004_display_settings.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
+  for(const file of ['0001_initial.sql','0002_site_settings.sql','0003_home_settings.sql','0004_display_settings.sql','0005_theme_navigation.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
   const insert=db.prepare('INSERT INTO posts (id,slug,title,status,created_at,updated_at,published_at,category,tags,content) VALUES (?,?,?,?,?,?,?,?,?,?)');
   insert.run('a','first','第一篇','published','2025-01-01','2025-02-02','2025-01-01','分类A','["标签A"]','## 标题一\n\n内容\n\n## 标题二');
   insert.run('b','second','第二篇','published','2026-01-01','2026-01-01','2026-01-01','','[]','正文');
@@ -77,4 +77,34 @@ test('display settings control the homepage and article metadata without exposin
     assert.equal((await save({...basic,post_show_updated:true,post_show_published:false})).status,200);
     const updated=await (await worker.fetch(req('/post/first'),env)).text();assert.match(updated,/更新于 <time/);assert.doesNotMatch(updated,/<p class="meta"> ·/);
   }finally{db.close()}
+});
+
+test('theme, social and navigation settings are validated and preserve older forms', async()=>{
+  const db=new DatabaseSync(':memory:');
+  for(const file of ['0001_initial.sql','0002_site_settings.sql','0003_home_settings.sql','0004_display_settings.sql','0005_theme_navigation.sql']) db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
+  db.prepare('INSERT INTO posts (id,slug,title,status,created_at,updated_at,published_at,content) VALUES (?,?,?,?,?,?,?,?)').run('1','post','测试文章','published','2026','2026','2026-01-01','## 标题一\n\n## 标题二');
+  const DB={prepare(sql){const stmt=db.prepare(sql);let args=[];return {bind(...v){args=v;return this},async first(){return stmt.get(...args)||null},async all(){return {results:stmt.all(...args)}},async run(){return {meta:{changes:Number(stmt.run(...args).changes)}}}}}};
+  const env={DB,BUCKET:{}};const req=(path,options={})=>new Request('https://blog.test'+path,options);
+  const save=async data=>{const r=req('/api/admin/settings',{method:'POST',headers:{Origin:'https://blog.test','Content-Type':'application/json'},body:JSON.stringify(data)});return adminApi(r,env,new URL(r.url))};
+  try{
+    const basic={title:'站点',description:'简介',avatar_url:'',icon_url:''};
+    const settings={...basic,accent_color:'#175b9a',github_url:'https://github.com/example',social_url:'https://example.com/',contact_email:'hello@example.com',archive_fold:true,post_share:true,mobile_nav:true};
+    assert.equal((await save(settings)).status,200);
+    let home=await (await worker.fetch(req('/'),env)).text();assert.match(home,/--accent:#175b9a/);assert.match(home,/href="https:\/\/github.com\/example"/);assert.match(home,/mailto:hello%40example.com/);assert.match(home,/手机快捷导航/);
+    const archive=await (await worker.fetch(req('/archive'),env)).text();assert.match(archive,/<details class="archive-year archive-fold">/);
+    const post=await (await worker.fetch(req('/post/post'),env)).text();assert.match(post,/id="shareArticle"/);assert.match(post,/id="shareFallback"/);
+    assert.equal((await save(basic)).status,200);let row=db.prepare('SELECT * FROM site_settings').get();assert.equal(row.accent_color,'#175b9a');assert.equal(row.mobile_nav,1);assert.equal(row.github_url,'https://github.com/example');
+    for(const bad of [{accent_color:'red;}'},{github_url:'javascript:alert(1)'},{social_url:'https://user:pass@example.com/'},{contact_email:'x@example.com?subject=bad'},{post_share:'false'}]) assert.equal((await save({...basic,...bad})).status,400);
+    row=db.prepare('SELECT * FROM site_settings').get();assert.equal(row.accent_color,'#175b9a');
+  }finally{db.close()}
+});
+
+test('new migration preserves previously saved display options',()=>{
+ const db=new DatabaseSync(':memory:');
+ try{
+  for(const file of ['0001_initial.sql','0002_site_settings.sql','0003_home_settings.sql','0004_display_settings.sql'])db.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
+  db.prepare('INSERT INTO site_settings (id,title,description,avatar_url,icon_url,home_heading,home_show_excerpt,home_limit,post_show_toc) VALUES (1,?,?,?,?,?,?,?,?)').run('已有名称','已有简介','','','已有标题',0,7,0);
+  db.exec(readFileSync(new URL('../migrations/0005_theme_navigation.sql',import.meta.url),'utf8'));
+  const row=db.prepare('SELECT * FROM site_settings').get();assert.equal(row.title,'已有名称');assert.equal(row.home_heading,'已有标题');assert.equal(row.home_limit,7);assert.equal(row.home_show_excerpt,0);assert.equal(row.post_show_toc,0);assert.equal(row.accent_color,'#2bbc8a');assert.equal(row.post_share,0);assert.equal(row.mobile_nav,0);
+ }finally{db.close()}
 });

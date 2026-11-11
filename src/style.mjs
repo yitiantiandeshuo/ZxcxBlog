@@ -90,4 +90,11 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 /* Markdown task lists and section separators. */
 .content .task-list-item{list-style:none}.content .task-list-item input[type=checkbox]{display:inline-block;width:auto;margin:0 .25rem 0 -1.25rem;accent-color:var(--accent);vertical-align:middle}.content hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
 
+/* Optional personal navigation and sharing. */
+.social-links{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem;font-size:.875rem}.social-links a{color:var(--accent);border:0}.social-links a:hover{text-decoration:underline}
+.archive-fold{margin:2rem 0}.archive-fold summary{cursor:pointer;font-size:1.25rem;font-weight:700}.archive-fold .post-list{margin-top:.75rem}
+.post-share{margin:2rem 0 0;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}.post-share input{flex-basis:100%}.post-share input[hidden]{display:none}.post-share button{font-size:.875rem}
+.mobile-quick-nav{display:none}
+@media(max-width:639px){.mobile-quick-nav{position:fixed;bottom:0;left:0;right:0;z-index:10;display:flex;justify-content:space-around;gap:.25rem;padding:.55rem 1rem max(.55rem,env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--line);font-size:.875rem}.mobile-quick-nav a{border:0;color:var(--accent);padding:.25rem}.wrap:has(.mobile-quick-nav){padding-bottom:4rem}}
+
 `;
