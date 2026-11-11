@@ -66,3 +66,20 @@ test('D1/R2 workflow: drafts, media visibility, publishing and stale edits', asy
   const listReq=new Request('https://blog.test/api/admin/images');const list=await adminApi(listReq,E,new URL(listReq.url));assert.deepEqual((await list.json()).keys,[image.slice(7)]);
   db.close();
 });
+
+test('archive groups published posts by year, newest first, and excludes drafts',async()=>{
+  const {DatabaseSync}=await import('node:sqlite');const {readFileSync}=await import('node:fs');
+  const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));
+  const insert=db.prepare('INSERT INTO posts (id,slug,title,status,created_at,updated_at,published_at) VALUES (?,?,?,?,?,?,?)');
+  insert.run('1','older','Old','published','2024','2024','2024-06-01');
+  insert.run('2','newer','New','published','2025','2025','2025-03-01');
+  insert.run('3','newest','Newest','published','2025','2025','2025-10-01');
+  insert.run('4','draft','Secret draft','draft','2026','2026','2026-01-01');
+  const DB={prepare(sql){return {async all(){return {results:db.prepare(sql).all()}}}}};
+  try {
+    const res=await worker.fetch(new Request('https://blog.test/archive'),{...env,DB});const html=await res.text();
+    assert.equal(res.status,200);assert.ok(html.indexOf('<h2>2025</h2>') < html.indexOf('<h2>2024</h2>'));
+    assert.ok(html.indexOf('>Newest</a>') < html.indexOf('>New</a>'));assert.match(html,/\/post\/older/);assert.doesNotMatch(html,/Secret draft/);
+    db.exec('DELETE FROM posts');const empty=await worker.fetch(new Request('https://blog.test/archive'),{...env,DB});assert.match(await empty.text(),/这里暂时还没有文章/);
+  }finally{db.close()}
+});

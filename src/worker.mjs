@@ -6,6 +6,16 @@ const response = (html, status = 200) => new Response(html, { status, headers: {
 const link = (path, label) => `<a href="${path}">${e(label)}</a>`;
 const tagLinks = post => { const tags = JSON.parse(post.tags || '[]'); return `<div class="chips">${post.category ? link('/category/' + encodeURIComponent(post.category), post.category) : ''}${tags.map(t=>link('/tag/'+encodeURIComponent(t), '#'+t)).join('')}</div>`; };
 const listing = posts => posts.length ? `<ul class="post-list">${posts.map(p=>`<li><time>${e((p.published_at || '').slice(0,10))}</time>${link('/post/'+encodeURIComponent(p.slug),p.title)}</li>`).join('')}</ul>` : '<p class="muted">这里暂时还没有文章。</p>';
+function archiveListing(posts) {
+  if (!posts.length) return listing(posts);
+  const years = new Map();
+  for (const post of posts) {
+    const year = /^\d{4}-/.test(post.published_at || '') ? post.published_at.slice(0,4) : '未注明年份';
+    if (!years.has(year)) years.set(year, []);
+    years.get(year).push(post);
+  }
+  return [...years].map(([year, entries]) => `<section class="archive-year"><h2>${e(year)}</h2>${listing(entries)}</section>`).join('');
+}
 function layout(env, body, title = '') {
   const name = e(env.SITE_TITLE || '我的博客');
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${e(env.SITE_DESCRIPTION || '记录生活与思考。')}"><title>${title ? e(title)+' · ' : ''}${name}</title><style>${css}</style></head><body><div class="wrap"><header><a class="logo" href="/">${name}</a><nav class="nav" aria-label="主导航"><a href="/archive">归档</a><a href="/topics">分类与标签</a><a href="/about">关于</a><a href="/search">搜索</a></nav></header><main>${body}</main><footer><span>© ${new Date().getUTCFullYear()} ${name}</span><span><a href="/admin">管理</a></span></footer></div></body></html>`;
@@ -85,7 +95,7 @@ export default { async fetch(request, env) {
     if (!['/','/archive','/topics','/search'].includes(path) && !path.startsWith('/category/') && !path.startsWith('/tag/')) return response(layout(env,'<h1>页面不存在</h1>'),404);
     const posts = await publicPosts(env);
     if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><h2 class="home-posts-title"><a href="/archive">近期发布</a></h2>${listing(posts.slice(0,15))}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
-    if (path === '/archive') return response(layout(env,`<h1>归档</h1>${listing(posts)}`,'归档'));
+    if (path === '/archive') return response(layout(env,`<h1>归档</h1>${archiveListing(posts)}`,'归档'));
     if (path === '/topics') {
       const categories = [...new Set(posts.map(p=>p.category).filter(Boolean))].sort();
       const tags = [...new Set(posts.flatMap(p=>JSON.parse(p.tags || '[]')))].sort();

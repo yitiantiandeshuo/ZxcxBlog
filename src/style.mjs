@@ -13,6 +13,7 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 .intro{margin:0 0 3rem}.intro p{margin:0 0 1rem}
 .home-posts-title{font-size:1.35rem;letter-spacing:.01em;margin:3rem 0 1rem;color:var(--accent)}
 .home-posts-title a{border:0;color:inherit}
+.archive-year h2{font-size:1.35rem;letter-spacing:.01em;margin:2.5rem 0 1rem}
 .post-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.3125rem 1rem}
 .post-list li{display:contents}.post-list time{min-width:0;font-size:.875rem;color:#777}.post-list a{min-width:0;overflow-wrap:anywhere}
 @media(max-width:639px){.wrap{padding:0 1rem}header{padding-top:3rem;margin-bottom:2rem}.nav{gap:.6rem 0;line-height:1.5}.nav a{padding:0 .65rem}.post-list{display:block}.post-list li{display:block;margin:0 0 1rem;padding:0}.post-list time{display:block}}
