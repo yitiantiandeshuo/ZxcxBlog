@@ -11,6 +11,57 @@ function layout(env, body, title = '') {
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${e(env.SITE_DESCRIPTION || '记录生活与思考。')}"><title>${title ? e(title)+' · ' : ''}${name}</title><style>${css}</style></head><body><div class="wrap"><header><a class="logo" href="/">${name}</a><nav class="nav" aria-label="主导航"><a href="/archive">归档</a><a href="/topics">分类与标签</a><a href="/about">关于</a><a href="/search">搜索</a></nav></header><main>${body}</main><footer><span>© ${new Date().getUTCFullYear()} ${name}</span><span><a href="/admin">管理</a></span></footer></div></body></html>`;
 }
 async function publicPosts(env) { return (await env.DB.prepare("SELECT slug,title,excerpt,category,tags,published_at FROM posts WHERE status = 'published' ORDER BY published_at DESC, id DESC").all()).results; }
+const mediaNotFound = () => new Response('Not found', {status:404,headers:{'Cache-Control':'no-store'}});
+const maxCacheBytes = 5 * 1024 * 1024;
+function etagMatches(header, etag) {
+  if (!header || !etag) return false;
+  return header.split(',').some(value => value.trim() === '*' || value.trim().replace(/^W\//, '') === etag.replace(/^W\//, ''));
+}
+function mediaResponse(req, source) {
+  const headers = new Headers(source.headers);
+  headers.delete('x-blog-cache-missing');
+  headers.set('Cache-Control', 'no-store');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
+  if (etagMatches(req.headers.get('If-None-Match'), headers.get('ETag'))) {
+    headers.delete('Content-Length');
+    return new Response(null, {status:304, headers});
+  }
+  return new Response(req.method === 'HEAD' ? null : source.body, {status:200, headers});
+}
+async function media(request, env, key, url) {
+  if (!/^[a-f0-9-]{36}\.(png|jpg|webp|gif)$/.test(key)) return mediaNotFound();
+  const candidates = (await env.DB.prepare("SELECT content FROM posts WHERE status = 'published' AND instr(content, ?) > 0").bind('/media/'+key).all()).results;
+  if (!candidates.some(post => markdown(post.content).includes(`src="/media/${key}"`))) return mediaNotFound();
+
+  // The cache only holds objects, never the decision to make them public.
+  const cacheUrl = new URL(url.origin); cacheUrl.pathname = '/__blog_media_cache_v1/' + key;
+  const cacheKey = new Request(cacheUrl.toString(), {method:'GET'});
+  let cache;
+  try { cache = globalThis.caches?.default; } catch { /* Cache API may be unavailable. */ }
+  if (cache) {
+    try {
+      const hit = await cache.match(cacheKey);
+      if (hit?.status === 404 && hit.headers.get('x-blog-cache-missing') === '1') return mediaNotFound();
+      if (hit?.status === 200) return mediaResponse(request, hit);
+    } catch { /* Preserve availability when cache is unavailable. */ }
+  }
+  const object = request.method === 'HEAD' && typeof env.BUCKET.head === 'function' ? await env.BUCKET.head(key) : await env.BUCKET.get(key);
+  if (!object) {
+    if (cache) try { await cache.put(cacheKey, new Response(null,{status:404,headers:{'Cache-Control':'public, max-age=30','x-blog-cache-missing':'1'}})); } catch { /* Safe uncached fallback. */ }
+    return mediaNotFound();
+  }
+  const headers = new Headers(); object.writeHttpMetadata(headers);
+  headers.set('Content-Type', {'png':'image/png','jpg':'image/jpeg','gif':'image/gif','webp':'image/webp'}[key.split('.').pop()]);
+  headers.set('Cache-Control','public, max-age=3600');
+  if (object.httpEtag) headers.set('ETag',object.httpEtag);
+  if (Number.isSafeInteger(object.size) && object.size >= 0) headers.set('Content-Length',String(object.size));
+  const raw = new Response(request.method === 'HEAD' ? null : object.body, {status:200,headers});
+  if (cache && request.method === 'GET' && Number.isSafeInteger(object.size) && object.size <= maxCacheBytes && object.size >= 0) {
+    try { await cache.put(cacheKey, raw.clone()); } catch { /* Safe uncached fallback. */ }
+  }
+  return mediaResponse(request,raw);
+}
 export default { async fetch(request, env) {
   const url = new URL(request.url), path = url.pathname;
   try {
@@ -22,14 +73,7 @@ export default { async fetch(request, env) {
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', {status:405});
     if (path.startsWith('/media/')) {
-      const key = path.slice(7);
-      if (!/^[a-f0-9-]{36}\.(png|jpg|webp|gif)$/.test(key)) return new Response('Not found',{status:404});
-      const notFound = () => new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
-      const candidates = (await env.DB.prepare("SELECT content FROM posts WHERE status = 'published' AND instr(content, ?) > 0").bind('/media/'+key).all()).results;
-      if (!candidates.some(post => markdown(post.content).includes(`src="/media/${key}"`))) return notFound();
-      const object = await env.BUCKET.get(key); if (!object) return notFound();
-      const headers = new Headers({'X-Content-Type-Options':'nosniff','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; sandbox"});
-      object.writeHttpMetadata(headers); return new Response(object.body,{headers});
+      return await media(request, env, path.slice(7), url);
     }
     if (path.startsWith('/post/')) {
       const slug = decodeURIComponent(path.slice(6));
@@ -38,6 +82,7 @@ export default { async fetch(request, env) {
       return response(layout(env,`<article><h1>${e(p.title)}</h1><p class="meta">${e((p.published_at || '').slice(0,10))}</p>${tagLinks(p)}<div class="content">${markdown(p.content)}</div></article>`,p.title));
     }
     if (path === '/about') return response(layout(env,'<h1>关于</h1><div class="content"><p>你好，欢迎来到我的博客。</p><p>这里记录生活与思考。</p></div>','关于'));
+    if (!['/','/archive','/topics','/search'].includes(path) && !path.startsWith('/category/') && !path.startsWith('/tag/')) return response(layout(env,'<h1>页面不存在</h1>'),404);
     const posts = await publicPosts(env);
     if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><h2>近期发布</h2>${listing(posts.slice(0,15))}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
     if (path === '/archive') return response(layout(env,`<h1>归档</h1>${listing(posts)}`,'归档'));
@@ -57,5 +102,5 @@ export default { async fetch(request, env) {
       return response(layout(env,`<h1>搜索</h1><form action="/search"><label class="sr" for="q">搜索文章</label><div class="row"><input id="q" name="q" value="${e(q)}" placeholder="搜索文章"><button style="flex:0">搜索</button></div></form><div class="results">${q ? listing(matches) : '<p class="muted">输入关键词搜索文章。</p>'}</div>`,'搜索'));
     }
     return response(layout(env,'<h1>页面不存在</h1>'),404);
-  } catch (error) { console.error('Request failed', error); return response(layout(env,'<h1>暂时无法加载</h1><p>请稍后重试。</p>'),500); }
+  } catch (error) { console.error('Request failed', error); if (path.startsWith('/media/')) return new Response('Service unavailable',{status:500,headers:{'Cache-Control':'no-store'}}); return response(layout(env,'<h1>暂时无法加载</h1><p>请稍后重试。</p>'),500); }
 } };

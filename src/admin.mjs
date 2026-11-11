@@ -51,8 +51,9 @@ export async function adminApi(req, env, url) {
       const key = path.slice('/api/admin/media/'.length);
       if (!/^[a-f0-9-]{36}\.(png|jpg|webp|gif)$/.test(key)) return json({error:'图片不存在'},404);
       const object = await env.BUCKET.get(key); if (!object) return json({error:'图片不存在'},404);
-      const headers = new Headers({'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; sandbox"});
-      object.writeHttpMetadata(headers); return new Response(object.body,{headers});
+      const headers = new Headers(); object.writeHttpMetadata(headers);
+      headers.set('Cache-Control','no-store'); headers.set('X-Content-Type-Options','nosniff'); headers.set('Content-Security-Policy',"default-src 'none'; sandbox");
+      return new Response(object.body,{headers});
     }
     if (path === '/api/admin/preview' && req.method === 'POST') { const input = await req.json(); if (typeof input.content !== 'string' || input.content.length > 500000) return json({error:'正文过长'},400); return json({html:markdown(input.content).replaceAll('src="/media/', 'src="/api/admin/media/')}); }
     if (path === '/api/admin/posts' && req.method === 'POST') {
