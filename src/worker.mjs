@@ -130,7 +130,7 @@ export default { async fetch(request, env) {
       return response(layout(env,`<h1>搜索</h1><form action="/search"><label class="sr" for="q">搜索文章</label><div class="row"><input id="q" name="q" value="${e(q)}" placeholder="搜索文章"><button style="flex:0">搜索</button></div></form><div class="results">${q ? listing(matches) : '<p class="muted">输入关键词搜索文章。</p>'}</div>`,'搜索'));
     }
     const posts = await publicPosts(env);
-    if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><form class="quick-search" action="/search" role="search"><label class="sr" for="home-search">搜索文章</label><input id="home-search" type="search" name="q" maxlength="100" placeholder="搜索文章…"><button type="submit">搜索</button></form><h2 class="home-posts-title"><a href="/archive">近期发布</a></h2>${listing(posts.slice(0,15), true)}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
+    if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><form class="quick-search" action="/search" role="search"><label class="sr" for="home-search">搜索文章</label><input id="home-search" type="search" name="q" maxlength="100" placeholder="搜索文章…"><button type="submit">搜索</button></form><h2 class="home-posts-title"><a href="/archive">${e(env.HOME_HEADING || '近期发布')}</a></h2>${listing(posts.slice(0,15), env.HOME_SHOW_EXCERPT !== 0)}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
     if (path === '/archive') return response(layout(env,`<h1>归档</h1>${archiveListing(posts)}`,'归档'));
     if (path === '/topics') {
       const categories = new Map(), tags = new Map();

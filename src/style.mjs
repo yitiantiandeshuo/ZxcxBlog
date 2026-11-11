@@ -85,4 +85,6 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 
 .settings-image{display:block;width:4rem;height:4rem;object-fit:cover;border-radius:.4rem;margin:.5rem 0}.settings-image[hidden]{display:none}#siteSettings input[type=file]{margin-bottom:.5rem}
 
+.settings-checkbox{display:flex;align-items:center;gap:.5rem;margin:1rem 0}.settings-checkbox input{width:auto}
+
 `;
