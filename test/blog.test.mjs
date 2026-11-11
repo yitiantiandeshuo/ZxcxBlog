@@ -62,6 +62,8 @@ test('D1/R2 workflow: drafts, media visibility, publishing and stale edits', asy
   const hidden = await worker.fetch(new Request('https://blog.test'+image),E);assert.equal(hidden.status,404);assert.equal(hidden.headers.get('Cache-Control'),'no-store');
   saved=await r.json();r=await api('/api/admin/posts',{...input,...saved,status:'published',content:'```\n![secret]('+image+')\n```'});assert.equal(r.status,200);
   assert.equal((await worker.fetch(new Request('https://blog.test'+image),E)).status,404);
+  saved=await r.json();r=await api('/api/admin/posts',{...input,...saved,status:'published',content:'1. 外层\n   - ![nested]('+image+')'});assert.equal(r.status,200);
+  assert.equal((await worker.fetch(new Request('https://blog.test'+image),E)).status,200);
   saved=await r.json();r=await api('/api/admin/posts',{...input,...saved,status:'draft'});assert.equal(r.status,200);
   const expReq=new Request('https://blog.test/api/admin/export');const exp=await adminApi(expReq,E,new URL(expReq.url));const backup=await exp.json();assert.equal(backup.posts[0].content,input.content);assert.equal(backup.posts[0].status,'draft');
   const listReq=new Request('https://blog.test/api/admin/images');const list=await adminApi(listReq,E,new URL(listReq.url));assert.deepEqual((await list.json()).keys,[image.slice(7)]);
@@ -173,4 +175,11 @@ test('markdown tables render aligned cells safely and preserve escaped pipes',()
   assert.match(html,/<code>&lt;x&gt;<\/code>/);assert.match(html,/<\/table><p>后续<\/p>/);
   assert.doesNotMatch(markdown('```\n| A | B |\n| --- | --- |\n```'),/<table>/);
   assert.doesNotMatch(markdown('| A | B |\n| --- | nope |'),/<table>/);
+});
+
+test('markdown renders nested ordered and unordered lists with safe text',()=>{
+  const html=markdown('1. 第一\n   - 子项\n   - <script>\n     3. 深层\n2. 第二\n\n段落');
+  assert.equal(html,'<ol><li>第一<ul><li>子项</li><li>&lt;script&gt;<ol start="3"><li>深层</li></ol></li></ul></li><li>第二</li></ol><p>段落</p>');
+  assert.equal(markdown('- A\n- B\n1. C\n2. D'),'<ul><li>A</li><li>B</li></ul><ol><li>C</li><li>D</li></ol>');
+  assert.match(markdown('```\n1. 不解析\n```'),/<pre><code>1\. 不解析<\/code><\/pre>/);
 });

@@ -33,9 +33,25 @@ function tableCells(line) {
 export function markdown(input, { headingAnchors = false, onHeading = () => {} } = {}) {
   const usedHeadingIds = new Set();
   const lines = String(input ?? '').replace(/\r\n?/g, '\n').split('\n');
-  let html = '', para = [], list = false, code = null;
+  let html = '', para = [], code = null;
+  const lists = [];
   const flush = () => { if (para.length) { html += `<p>${para.map(inline).join('<br>')}</p>`; para = []; } };
-  const endList = () => { if (list) { html += '</ul>'; list = false; } };
+  const closeList = () => { const list = lists.pop(); html += `</li></${list.type}>`; };
+  const endList = () => { while (lists.length) closeList(); };
+  const addItem = (indent, type, start, value) => {
+    while (lists.length && indent < lists[lists.length - 1].indent) closeList();
+    const current = lists[lists.length - 1];
+    if (!current || (indent > current.indent && lists.length < 32)) {
+      html += `<${type}${type === 'ol' && start !== 1 ? ` start="${start}"` : ''}><li>${inline(value)}`;
+      lists.push({indent, type});
+    } else if (type === current.type) {
+      html += `</li><li>${inline(value)}`;
+    } else {
+      closeList();
+      html += `<${type}${type === 'ol' && start !== 1 ? ` start="${start}"` : ''}><li>${inline(value)}`;
+      lists.push({indent, type});
+    }
+  };
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
     if (/^```/.test(line)) { flush(); endList(); if (code === null) code = []; else { html += `<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`; code = null; } continue; }
@@ -69,8 +85,14 @@ export function markdown(input, { headingAnchors = false, onHeading = () => {} }
       html += `<h${n} id="${escapeHtml(id)}">${inline(heading[2])}<a class="heading-anchor" href="#${encodeURIComponent(id)}" aria-label="${escapeHtml(`链接至：${label}`)}">#</a></h${n}>`;
       continue;
     }
-    const item = /^\s*[-*+]\s+(.+)$/.exec(line);
-    if (item) { flush(); if (!list) { html += '<ul>'; list = true; } html += `<li>${inline(item[1])}</li>`; continue; }
+    const item = /^([ \t]*)([-*+]|\d{1,9}[.)])[ \t]+(.+)$/.exec(line);
+    if (item) {
+      flush();
+      const indent = item[1].replace(/\t/g, '    ').length;
+      const type = /^\d/.test(item[2]) ? 'ol' : 'ul';
+      addItem(indent, type, type === 'ol' ? Number.parseInt(item[2], 10) : 1, item[3]);
+      continue;
+    }
     endList();
     const quote = /^>\s?(.*)$/.exec(line);
     if (quote) { flush(); html += `<blockquote>${inline(quote[1])}</blockquote>`; continue; }
