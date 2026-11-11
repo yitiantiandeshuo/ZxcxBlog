@@ -116,7 +116,7 @@ test('about page renders safely and only publishes images actually referenced',a
  const request=(p,o={})=>new Request('https://blog.test'+p,o), save=async data=>{const r=request('/api/admin/settings',{method:'POST',headers:{Origin:'https://blog.test','Content-Type':'application/json'},body:JSON.stringify(data)});return adminApi(r,env,new URL(r.url))};
  try{
   const basic={title:'站点',description:'',avatar_url:'',icon_url:''};
-  assert.equal((await save({...basic,about_content:'## 我的介绍\n\n<script>\n\n![图](/media/'+key+')'})).status,200);
+  assert.equal((await save({...basic,about_content:'## 我的介绍\n\n<script></script>\n\n![图](/media/'+key+')'})).status,200);
   const html=await (await worker.fetch(request('/about'),env)).text();assert.match(html,/<h2>我的介绍<\/h2>/);assert.match(html,/&lt;script&gt;/);assert.equal((await worker.fetch(request('/media/'+key),env)).status,200);
   assert.equal((await save({...basic,about_content:'```\n![图](/media/'+key+')\n```'})).status,200);assert.equal((await worker.fetch(request('/media/'+key),env)).status,404);
  }finally{db.close()}

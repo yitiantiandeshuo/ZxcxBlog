@@ -1,50 +1,164 @@
 # ZxcxBlog
 
-面向 Cloudflare Workers 的个人博客：公开阅读、Markdown 写作、D1 文章与 R2 图片。首页布局和部分样式参考并改编自 Higan Haozi；原主题版权和 MIT 许可见 `licenses/higan-haozi-MIT.txt`，未复制作者的个人内容。初始名称、简介在 `wrangler.toml` 修改；之后可在后台“站点设置”调整名称、简介和关于页。项目不包含示例文章。Markdown 当前支持标题、段落、有序和无序嵌套列表、引用、粗斜体、删除线、任务列表、分隔线、链接、图片、代码块及基础表格；复杂嵌套块等尚未完整支持。
+一个运行在自己 Cloudflare 账户里的轻量个人博客。公开站点专注阅读，受保护的后台提供 Markdown 写作、图片上传和站点设置；不需要维护独立服务器或部署 Halo。
 
-## 部署前必须完成
+布局和部分样式参考并改编自 [Higan Haozi](https://howiehz.top/halo-theme-higan-haozi/)。这个项目是独立实现，并不包含 Halo CMS，也不要求安装 Halo。
 
-1. 使用项目内 Wrangler 登录自己的 Cloudflare 账户，检查账户身份；在该账户创建 D1 数据库 `zxcx-blog` 和 R2 存储桶 `zxcx-blog-images`。`wrangler.toml` 已配置当前账户新建的 D1 ID；迁移到其他账户时应更换，不要把凭据写入代码。
-2. 启用 Cloudflare Zero Trust 并创建 Access 应用，保护 `/admin*` 与 `/api/admin/*`，为站长邮箱配置允许策略。只保护管理路径，公开博客保持匿名访问。对每个可访问域名和预览 URL 均检查保护；关闭不需要的地址。应用从每个请求验证 Access 签名、签发者、受众、到期时间和站长邮箱，缺失配置时拒绝管理访问。
-3. 配置 `ACCESS_TEAM_DOMAIN`（如 `https://team.cloudflareaccess.com`）、`ACCESS_AUD`（该 Access 应用的 audience tag）和 `ADMIN_EMAIL`；确保部署域名和 Access 应用一致。邮箱可在部署时作为 Worker 变量设置，不应提交私人配置。
-4. 使用 `wrangler d1 migrations apply zxcx-blog --remote` 应用迁移，再用 `wrangler deploy` 部署；首次使用 `workers.dev`。登录后测试草稿、发布、图片和备份；匿名访问管理端、写入接口和草稿图片必须被拒绝。确认配置与测试完成前不要对外宣传地址。
+## 功能
 
-安装与执行应使用本机已授权的项目内工具，例如将 mise 的 Node 目录加入 PATH 后使用 `./node_modules/.bin/wrangler`。详细行为以 Cloudflare Access 和 Workers 当前官方文档为准。`preview_urls = false` 禁止额外预览地址，实际控制台配置仍须检查；Worker 同时自行验证令牌，防止其它地址绕开 Access 保护。
+- 阅读：响应式首页和文章页、深色模式、目录、上一篇和下一篇、归档、分类、标签和站内搜索。
+- 写作：Markdown 编辑与预览、草稿与发布、图片上传、格式工具栏，以及可选的浏览器标签页内未保存内容恢复。
+- 自定义：后台修改站名、简介、头像、站点图标、关于页、强调色、社交链接及部分显示选项。
+- 自托管：Cloudflare Workers 运行应用，D1 保存文章和设置，R2 保存图片；Cloudflare Access 保护后台。
+- 备份：导出文章及设置的 JSON；图片需要另外备份。
+
+目前面向个人博客：没有评论、定时发布、版本历史和完整的多用户 CMS。搜索会读取已发布文章进行匹配，适合文章数量较少的站点。
+
+## 部署前准备
+
+首次部署需要一定命令行和 Cloudflare 操作经验。你需要：
+
+1. 自己的 Cloudflare 账户，并有权管理 Workers、D1、R2 和 Zero Trust。先在 Cloudflare 控制台启用 R2；若要求提供付款方式或接受条款，请先阅读并自行决定。
+2. Node.js 及 npm。建议使用受当前 Wrangler 支持的 Node.js LTS 版本；项目测试使用 Node.js 24。Wrangler 随项目依赖安装，无需全局安装。[Wrangler 环境要求](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
+3. Git，或者从 GitHub 下载仓库 ZIP 并解压。完成部署后，日常写作和站点设置可在浏览器中进行。
+
+> **费用提示：**可从 Cloudflare 免费额度开始，但 R2、D1 和 Workers 各自有计量及限制；免费额度不是整个账户的消费上限。用量、计费方式和可能要求的付款资料以 Cloudflare 当前页面为准。上线后请定期检查使用量和账单。[Workers 限额](https://developers.cloudflare.com/workers/platform/limits/) · [D1 定价](https://developers.cloudflare.com/d1/platform/pricing/) · [R2 定价](https://developers.cloudflare.com/r2/pricing/)
+
+## 首次部署
+
+以下步骤以 macOS / Linux 终端为例。Windows 用户可在 PowerShell 中使用相同的 `npm` / `npx` 命令。所有命令均在项目目录运行；`npx --no-install` 使用已安装的项目内 Wrangler，不会为每一步安装新工具。
+
+### 1. 获取代码并安装依赖
+
+```sh
+git clone https://github.com/yitiantiandeshuo/ZxcxBlog.git
+cd ZxcxBlog
+npm ci
+npm test
+npx --no-install wrangler login
+npx --no-install wrangler whoami
+```
+
+按浏览器提示登录并授权，检查 `whoami` 返回的是预期账户。多个账户时，确认后续创建和部署使用正确账户。不要共享终端授权信息。`npm ci` 会按锁文件安装项目运行和开发依赖。
+
+### 2. 创建数据库和图片桶
+
+选择属于你自己的资源名称；以下只是示例。命令会在 Cloudflare 账户创建资源，可能产生用量。
+
+```sh
+npx --no-install wrangler d1 create my-blog-db
+npx --no-install wrangler r2 bucket create my-blog-images
+```
+
+记录 D1 创建结果中的 `database_id`。如果资源名称已被占用或与现有资源冲突，请选择新名称；不要为了部署删除已有资源。R2 桶默认保持私有，不要开启 `r2.dev` 或设置公开自定义域名。图片通过 Worker 的 R2 binding 访问。
+
+### 3. 配置自己的 Worker
+
+编辑 [wrangler.toml](wrangler.toml)，至少修改以下值：
+
+```toml
+name = "my-blog" # 自己的 Worker 名称；不要与已有 Worker 重名
+
+[[d1_databases]]
+binding = "DB" # 保持不变
+database_name = "my-blog-db"
+database_id = "填写上一步创建的 D1 ID"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "BUCKET" # 保持不变
+bucket_name = "my-blog-images"
+```
+
+**必须替换仓库里原有的 `database_id`，不要直接使用它。**上面的片段只展示需要核对的字段，保留文件中的其他配置。`workers_dev = true` 用于初始访问，`preview_urls = false` 禁用额外预览 URL。`SITE_TITLE` 和 `SITE_DESCRIPTION` 可先修改，之后可以在后台“站点设置”调整；已经保存的后台设置会覆盖这两个默认值。
+
+如果将自己的配置推送到公开仓库，请检查不包含密码、令牌、Access 邮箱或其他不希望公开的信息。数据库 ID、资源名称和账户环境也应按个人情况处理。
+
+### 4. 初始化并首次部署
+
+以下 `DB` 是配置里的 binding 名称。**确认它指向刚创建的空数据库**，不要对不确定的现有生产库应用迁移。
+
+```sh
+npx --no-install wrangler d1 migrations apply DB --remote
+npx --no-install wrangler deploy
+```
+
+按提示确认迁移。部署会将 Worker 发布到 Cloudflare；记录 Wrangler 输出的 `https://<worker>.<子域名>.workers.dev` 地址。首次设置 `workers.dev` 子域名时，按 Cloudflare 控制台或 Wrangler 提示完成。
+
+此时管理端缺少认证配置，会在服务端拒绝访问；公开页面可访问。接下来立即配置 Access 和身份验证，并完成匿名访问检查后再对外分享地址。
+
+### 5. 保护管理页面与 API
+
+在 Cloudflare 控制台启用 Zero Trust，选择适合自己的计划，设置身份验证方式，例如邮箱一次性验证码。然后在 **Zero Trust → Access → Applications** 中创建一个 **Self-hosted** 应用：
+
+1. 将同一个应用的受保护路径覆盖到以下地址（把示例域名替换为自己的 Worker 主机名）：
+   - `my-blog.example.workers.dev/admin*`
+   - `my-blog.example.workers.dev/api/admin*`
+2. 创建 Allow 策略，仅允许你的管理员邮箱。检查路径规则是否覆盖 `/admin`、`/admin/settings`、`/api/admin` 和 `/api/admin/posts`。使用同一个应用及其 Audience，避免不同应用签发的令牌受众不一致。
+3. 在应用详情中找到 **Application Audience (AUD) tag**；同时记录 Zero Trust 的团队域名，格式为 `https://你的团队名.cloudflareaccess.com`。
+4. 不要给整个公开博客启用访问登录；只保护管理路径。如有自定义域名或其他可访问入口，也要逐一添加保护并检查优先级。保持不需要的预览地址关闭。[Cloudflare Access 与 Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/) · [应用路径规则](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/)
+
+在终端分别执行下列命令，按提示交互输入值；不要将值写入仓库或粘贴到公开聊天中：
+
+```sh
+npx --no-install wrangler secret put ACCESS_TEAM_DOMAIN
+npx --no-install wrangler secret put ACCESS_AUD
+npx --no-install wrangler secret put ADMIN_EMAIL
+```
+
+`ACCESS_TEAM_DOMAIN` 填完整 `https://…cloudflareaccess.com`，不带末尾路径；`ACCESS_AUD` 填上一步应用的 Audience tag；`ADMIN_EMAIL` 填 Allow 策略中允许的站长邮箱。**每次 `secret put` 都会立即创建并部署一个 Worker 版本**；缺少任何一项或身份不匹配时，管理端保持拒绝访问。[Cloudflare Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)
+
+应用除了依赖 Access 页面，还会在服务端校验 JWT 的签名、签发者、受众、有效期和管理员邮箱。不要为省步骤移除验证，也不要将 R2 设为公开。
+
+### 6. 首次验收
+
+- 无痕窗口打开首页，应可匿名阅读；访问 `/admin` 和 `/api/admin/posts` 应被 Access 拦截，不能读取管理数据。对所有域名重复检查。
+- 正常窗口访问 `/admin`，使用授权邮箱登录；在“站点设置”修改站名、头像、图标和关于页，上传图片后还需点击“保存设置”。
+- 创建测试草稿，上传图片并预览；无痕窗口不得看到草稿及其图片。发布后确认正文和图片正常，再撤回为草稿并确认新请求无法读取。
+- 导出备份，并检查 Workers、D1、R2 的使用量与 R2 公开访问设置。
+
+出现 403 时，检查两个路径是否归属同一个 Access 应用、应用 Audience、团队域名及邮箱是否完全一致；也检查是否使用了未受保护的备用域名。更改 Access 或 secrets 后重新登录再检查。
+
+## 日常使用
+
+打开 `https://你的站点/admin`，通过 Access 登录后新建文章。短链接使用小写英文字母、数字及连字符；填写分类和逗号分隔的标签，可先保存草稿再发布。编辑页面可手动或自动预览，上传图片后插入正文。图片支持 PNG、JPEG、GIF、WebP，每张不超过 5 MiB。
+
+Markdown 使用 `marked`，支持表格、任务列表、引用式链接及嵌套结构。原始 HTML 会转义，链接和图片地址经过安全检查；普通换行显示为换行，因此并非所有 CommonMark 默认行为都相同。站内图片请使用上传后生成的原样 `/media/…` 路径。自动预览会发起受保护的 Worker 请求；浏览器标签页内的未保存内容恢复仅作辅助，不能替代保存草稿和备份。
+
+## 更新
+
+更新前先备份文章和图片，并核对当前 `wrangler.toml` 是否仍指向自己的 Worker、数据库和桶。拉取新版本时保留自己的配置，查看版本说明和迁移内容，再运行：
+
+```sh
+npm ci
+npm test
+npx --no-install wrangler d1 migrations apply DB --remote
+npx --no-install wrangler deploy
+```
+
+命令会修改远程数据库及生产 Worker；请确认目标账户和资源后执行。没有未应用迁移时 Wrangler 会提示。更新后重新检查首页、文章、图片和后台认证。若项目配置有本地修改，先妥善保存并处理 Git 冲突，不要直接覆盖。
 
 ## 备份与恢复
 
-后台“导出文章备份”会下载 JSON，包含每篇文章的 Markdown 正文、元数据、草稿、发布时间及站点设置。请妥善保管；这是敏感的私人数据。它不包含图片。先停止写入，备份文章并记录时间后，在已经登录的浏览器访问 `/api/admin/images` 获取完整 R2 对象键清单，再通过 Cloudflare R2 控制台逐个下载图片，原样保存文件名；两者一起保存。可使用 Cloudflare 文档支持的 S3 兼容工具做批量备份，但本项目不自动安装该工具。
+1. 停止写作和上传，后台点击“导出文章备份”，下载包含文章、草稿和站点设置的 JSON。文件含私人内容，请安全保存。
+2. 登录后台后在浏览器访问 `/api/admin/images` 获取 R2 对象键清单，通过 R2 控制台下载所有图片并保留原对象键；也可自行选择 Cloudflare 支持的工具批量备份。JSON 不包含图片；更换头像或图标不会自动删除旧图片。
+3. 恢复时先创建隔离的空 D1 和新 R2 桶，在新数据库应用迁移。执行 `python3 tools/backup_to_sql.py /安全位置/blog-backup.json > /安全位置/restore.sql`，审阅 SQL，再使用 `wrangler d1 execute DB --remote --file /安全位置/restore.sql` 导入**已确认绑定到新数据库**的目标。SQL 为仅插入操作，不用于覆盖现有文章。
+4. 按原对象键上传图片并设置正确的 Content-Type，核对文章、草稿、设置和图片后再切换站点。不要直接在生产库试验。备份并非跨 D1/R2 的原子快照，期间应停止写入。不要把备份、图片、SQL 或密钥提交到 Git。
 
-恢复到隔离的新数据库和新桶：先应用迁移，运行 `python3 tools/backup_to_sql.py /安全位置/blog-backup.json > /安全位置/restore.sql`，审阅后通过 Wrangler 对新 D1 执行 SQL 文件；SQL 只插入数据，不覆盖已有文章，冲突时应停止并检查。将图片以原对象键上传到新 R2 桶，并分别为 png/jpg/gif/webp 设置正确的 Content-Type。切换前核对文章、草稿、图片数量与内容；不要在生产库直接试验。备份不是跨 D1/R2 的原子快照，备份期间不要写作或上传。不要将备份、SQL、密钥或上传图片提交到 Git。
+## 图片访问、缓存与费用
 
-## 检查
+公开图片须被已发布文章或公开站点设置引用；草稿预览图片需要管理员身份。每次读取仍先检查 D1 中的公开状态，内部 Cache API 最长缓存图片一小时，未找到对象短暂负缓存；浏览器响应为 `no-store`。缓存按数据中心局部生效，冷缓存或并发请求仍可能读取 R2，无法保证全球命中。外部同键覆盖后旧内容最多可能在边缘缓存保留一小时；推荐通过后台上传生成新地址。
 
-`npm test` 运行 Node 内置测试。部署和本地 Cloudflare 集成测试需要项目内 Wrangler。管理员认证和数据变更必须通过独立安全审查与真实 Cloudflare 环境验收后才可投入使用。
+缓存不能限制 IP 请求，也不能阻止恶意流量耗尽 Workers 或 D1 额度。请检查 R2 没有不必要的公开入口，监控 Workers 请求及错误、D1 和 R2 用量，并根据自己的账户设置可用的预算提醒。提醒不是消费上限。将来接入自有域名时，需评估 WAF 限流以及 `workers.dev` 等旁路地址。
 
-项目的 Wrangler 授权位于被 Git 忽略的 `.wrangler/config/`；它包含 Cloudflare OAuth 凭据。需要移除授权时可使用同一配置目录执行 `wrangler logout`，或先在 Cloudflare 撤销授权，再删除该目录。`node_modules/` 仅包含项目依赖，删除后可按锁文件重新安装。
+## 开发与项目结构
 
-## 图片缓存和费用防护
+- `src/worker.mjs`：公开路由和图片读取；`src/admin.mjs`：管理接口和认证。
+- `src/markdown.mjs`、`src/style.mjs`：Markdown 渲染与样式。
+- `migrations/`：D1 数据库迁移；`test/`：Node 内置测试；`tools/`：备份恢复辅助工具。
 
-- 每次公开图片请求先检查 D1 中是否仍被已发布文章引用，然后查询数据中心本地的 Cache API；命中时跳过 R2。浏览器响应始终为 `no-store`，因此撤回文章后的新请求仍须通过公开状态检查。
-- 内部成功响应缓存最多一小时；已发布文章引用但 R2 对象不存在时，内部负缓存 30 秒。查询参数不影响内部图片缓存键；GET、HEAD 和条件请求分别处理，Range 请求返回完整内容。缓存仅接受不超过 5 MiB 的完整对象。
-- R2 外部同键覆盖后，已有边缘缓存可能显示旧内容最多一小时。请尽量通过后台上传新图片（生成新地址）；如需立即更新，同键覆盖不能保证全球立即生效。Cache API 是数据中心本地缓存，不保证命中；Workers 仍会运行并读取 D1，冷缓存并发可能触发多次 R2 读取。
-- Cache API 在 `workers.dev` 与路径级 Cloudflare Access 组合下已在隔离线上环境的一个数据中心验证；其他数据中心和真实流量下的节省效果仍需观察。不可用或异常时回退到直接读 R2；内部缓存不直接暴露命中头。
-- 查看 Cloudflare 控制台 Workers 请求、错误及 D1 读取，R2 的指标页可查看操作量和存储。R2 的 r2.dev 和自定义域名需要持续保持预期配置；预算告警只通知，不会封顶。Workers Free 配额会影响整个账户，不能当作 R2 或账户总费用上限。
-- 如未来接入自有 Cloudflare 域名，再评估免费 WAF 限流和所有旁路域名；当前 workers.dev 不应假定能配置自有 zone 的规则。缓存不提供 IP 限流，也不能阻止分布式攻击耗尽 Workers 或 D1 额度。
-- 如需回滚，部署不含本次图片缓存改动的上一个已验证 Worker 版本，并确认管理秘密和 D1/R2 绑定不变；随后检查匿名图片、草稿撤回和管理员访问。已缓存的对象可能在各数据中心保留至内部 TTL 到期，但旧版本不会读取这些内部缓存键。
+`npm test` 不需要连接 Cloudflare。使用 `npx --no-install wrangler dev` 可启动本地 Worker；先用 `npx --no-install wrangler d1 migrations apply DB --local` 初始化本地 D1。普通本地运行不能代替真实 Access 登录和生产安全验收，且本地数据与线上数据分开。需要退出 Wrangler 时使用 `npx --no-install wrangler logout`；不要提交授权文件、`node_modules` 或本地数据。
 
-## 站点设置与搜索
+## 许可与致谢
 
-在受 Cloudflare Access 保护的后台点击“站点设置”，可以修改网站名称、简介、首页文章列表标题、数量及摘要显示，控制文章目录和元信息显示，配置强调色、公开社交链接、归档折叠、分享与手机快捷导航，并上传头像及站点图标。图片需先上传再保存设置才会公开生效；支持 PNG、JPEG、GIF、WebP，单张不超过 5 MB。移除或更换只更改引用，不会删除 R2 文件。图标可能被浏览器缓存。未保存过设置时，沿用 `wrangler.toml` 里的默认值；上传的站点图片经 Worker 受控公开，不需要文章引用。公开文章图片仍遵守原有的发布检查。
-
-站点设置包含在文章 JSON 备份中；头像、图标及其他图片需按上方步骤另行备份 R2 文件，并在恢复时保留对象键。每次公开页面和媒体请求会额外读取站点设置，自动预览也会产生 Worker 请求。
-
-首页搜索框提交到站内搜索，只搜索已发布文章。
-
-后台可选择在当前浏览器标签页自动备份未保存内容；该备份保存在 sessionStorage，仅用于主动恢复，关闭标签页后可能消失，不能替代保存草稿或正式备份。共享设备上请谨慎使用并及时清除。
-
-后台可在文章编辑区选择“自动预览”，停止输入约 1.2 秒后向受保护的预览接口发送正文；默认关闭，手动预览仍可用。预览不会保存草稿或发布文章，自动预览会产生 Worker 请求，图片预览可能读取 R2。
-
-## 许可
-
-本项目代码按 [MIT License](LICENSE) 授权。改编自 Higan Haozi 的部分保留 [原项目版权及 MIT 许可](licenses/higan-haozi-MIT.txt)。博客文章、上传图片和其他个人内容的使用权由各自权利人决定，不随代码许可自动授予。
+项目代码按 [MIT License](LICENSE) 授权；改编自 Higan Haozi 的部分保留[原项目版权及 MIT 许可](licenses/higan-haozi-MIT.txt)。感谢原主题作者的设计与开源贡献。博客文章、上传图片及其他个人内容的权利由各自权利人决定，不随代码许可自动授予。

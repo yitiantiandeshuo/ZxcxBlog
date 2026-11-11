@@ -1,127 +1,54 @@
+import { Marked } from 'marked';
+
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function safeUrl(url, image = false) {
-  const s = url.trim();
-  if (/^\/(?!\/)/.test(s) || /^https?:\/\//i.test(s) || (!image && /^(mailto:|#)/i.test(s))) return escapeHtml(s);
+
+// Do not let Markdown destinations escape the current origin via //, backslashes,
+// encoded schemes or control characters. External images and links remain HTTPS/HTTP.
+function safeUrl(value, image = false) {
+  const s = String(value ?? '').trim();
+  if (!s || /[\u0000-\u001f\u007f\\]/.test(s)) return '';
+  if (s.startsWith('/') && !s.startsWith('//')) return s;
+  if (!image && (s.startsWith('#') || /^mailto:[^\s]+$/i.test(s))) return s;
+  try {
+    const url = new URL(s);
+    if ((url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password) return s;
+  } catch { /* Not an absolute URL. */ }
   return '';
 }
-function inline(value) {
-  const tokens = [];
-  const hold = html => `\u0000${tokens.push(html)-1}\u0000`;
-  let s = value.replace(/`([^`\n]+)`/g, (_, code) => hold(`<code>${escapeHtml(code)}</code>`));
-  s = s.replace(/!\[([^\]]*)\]\(([^\s)]+)\)|\[([^\]]+)\]\(([^\s)]+)\)/g, (_, alt, image, label, link) => {
-    const url = safeUrl(image || link, !!image);
-    if (!url) return escapeHtml(alt || label);
-    return hold(image ? `<img src="${url}" alt="${escapeHtml(alt)}" loading="lazy">` : `<a href="${url}" rel="noopener noreferrer">${escapeHtml(label)}</a>`);
-  });
-  s = escapeHtml(s).replace(/~~([^~\n]+)~~/g, '<del>$1</del>').replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
-  return s.replace(/\u0000(\d+)\u0000/g, (_, n) => tokens[Number(n)]);
-}
-// Split table cells without treating escaped pipes or pipes in inline code as separators.
-function tableCells(line) {
-  const cells = []; let cell = '', code = false, separators = 0;
-  const text = line.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '');
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (c === '\\' && text[i + 1] === '|') { cell += '|'; i++; }
-    else if (c === '`') { code = !code; cell += c; }
-    else if (c === '|' && !code) { cells.push(cell.trim()); cell = ''; separators++; }
-    else cell += c;
-  }
-  cells.push(cell.trim());
-  return separators || line.trim().startsWith('|') || line.trim().endsWith('|') ? cells : null;
-}
+
 export function markdown(input, { headingAnchors = false, onHeading = () => {} } = {}) {
   const usedHeadingIds = new Set();
-  const lines = String(input ?? '').replace(/\r\n?/g, '\n').split('\n');
-  let html = '', para = [], code = null, listBlank = false;
-  const lists = [];
-  const flush = () => { if (para.length) { html += `<p>${para.map(inline).join('<br>')}</p>`; para = []; } };
-  const closeParagraph = () => { const list=lists[lists.length-1]; if (list?.paragraph) { html += '</p>'; list.paragraph=false; } };
-  const closeList = () => { closeParagraph(); const list = lists.pop(); html += `</li></${list.type}>`; };
-  const endList = () => { while (lists.length) closeList(); };
-  const itemStart = value => {
-    const task = /^\[([ xX])\][ \t]+(.*)$/.exec(value);
-    if (!task) return `<li>${inline(value)}`;
-    const checked = task[1].toLowerCase() === 'x';
-    return `<li class="task-list-item"><input type="checkbox" disabled${checked ? ' checked' : ''} aria-label="${checked ? '已完成' : '未完成'}"> ${inline(task[2])}`;
-  };
-  const addItem = (indent, type, start, value) => {
-    closeParagraph(); listBlank = false;
-    while (lists.length && indent < lists[lists.length - 1].indent) closeList();
-    const current = lists[lists.length - 1];
-    if (!current || (indent > current.indent && lists.length < 32)) {
-      html += `<${type}${type === 'ol' && start !== 1 ? ` start="${start}"` : ''}>${itemStart(value)}`;
-      lists.push({indent, type});
-    } else if (type === current.type) {
-      html += `</li>${itemStart(value)}`;
-    } else {
-      closeList();
-      html += `<${type}${type === 'ol' && start !== 1 ? ` start="${start}"` : ''}>${itemStart(value)}`;
-      lists.push({indent, type});
-    }
-  };
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    if (/^```/.test(line)) { flush(); endList(); if (code === null) code = []; else { html += `<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`; code = null; } continue; }
-    if (code !== null) { code.push(line); continue; }
-    if (!line.trim()) {
-      flush();
-      if (lists.length && index + 1 < lines.length) {
-        const next = lines[index + 1], marker = /^([ \t]*)(?:[-*+]|\d{1,9}[.)])[ \t]+/.exec(next), continuation = /^([ \t]+)\S/.exec(next);
-        const currentIndent = lists[lists.length-1].indent;
-        if ((marker && marker[1].replace(/\t/g, '    ').length >= lists[0].indent) || (continuation && continuation[1].replace(/\t/g, '    ').length >= currentIndent + 2)) { closeParagraph(); listBlank=true; continue; }
+  const parser = new Marked({
+    gfm:true, breaks:true,
+    renderer:{
+      html(token) { return escapeHtml(token.text); },
+      link(token) {
+        const body = this.parser.parseInline(token.tokens);
+        const url = safeUrl(token.href);
+        if (!url) return body;
+        return `<a href="${escapeHtml(url)}"${token.title ? ` title="${escapeHtml(token.title)}"` : ''} rel="noopener noreferrer">${body}</a>`;
+      },
+      image(token) {
+        const url = safeUrl(token.href, true);
+        if (!url) return escapeHtml(token.text);
+        return `<img src="${escapeHtml(url)}" alt="${escapeHtml(token.text)}"${token.title ? ` title="${escapeHtml(token.title)}"` : ''} loading="lazy">`;
+      },
+      heading(token) {
+        const body = this.parser.parseInline(token.tokens), n = token.depth;
+        if (!headingAnchors) return `<h${n}>${body}</h${n}>`;
+        // Preserve the project's existing heading IDs and duplicate suffixes.
+        const label = token.text.replace(/!\[([^\]]*)\]\([^)]*\)|\[([^\]]+)\]\([^)]*\)/g, (_, alt, text) => alt || text || '').replace(/[`*_]/g, '').trim();
+        const base = label.toLowerCase().replace(/\s+/gu, '-').replace(/[^\p{L}\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'heading';
+        let id = base, suffix = 1;
+        while (usedHeadingIds.has(id)) id = `${base}-${suffix++}`;
+        usedHeadingIds.add(id);
+        onHeading({level:n,id,label});
+        return `<h${n} id="${escapeHtml(id)}">${body}<a class="heading-anchor" href="#${encodeURIComponent(id)}" aria-label="${escapeHtml(`链接至：${label}`)}">#</a></h${n}>`;
+      },
+      checkbox(token) {
+        return `<input type="checkbox" disabled${token.checked ? ' checked' : ''} aria-label="${token.checked ? '已完成' : '未完成'}">`;
       }
-      endList(); listBlank=false; continue;
     }
-    const continuation = lists.length && /^([ \t]+)(\S.*)$/.exec(line);
-    if (continuation && continuation[1].replace(/\t/g, '    ').length >= lists[lists.length-1].indent + 2 && !/^(?:[-*+]|\d{1,9}[.)])[ \t]+/.test(continuation[2])) {
-      const current = lists[lists.length-1];
-      if (listBlank) { html += '<p>'+inline(continuation[2]); current.paragraph=true; }
-      else html += '<br>'+inline(continuation[2]);
-      listBlank=false; continue;
-    }
-    if (/^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line)) { flush(); endList(); html += '<hr>'; continue; }
-    const headers = tableCells(line), separators = index + 1 < lines.length ? tableCells(lines[index + 1]) : null;
-    if (headers && separators && headers.length === separators.length && separators.every(cell => /^:?-{3,}:?$/.test(cell))) {
-      flush(); endList();
-      const alignment = separators.map(cell => cell.startsWith(':') && cell.endsWith(':') ? 'center' : cell.endsWith(':') ? 'right' : cell.startsWith(':') ? 'left' : '');
-      const cellHtml = (cell, column, tag) => `<${tag}${alignment[column] ? ` class="align-${alignment[column]}"` : ''}>${inline(cell || '')}</${tag}>`;
-      html += `<table><thead><tr>${headers.map((cell, i) => cellHtml(cell, i, 'th')).join('')}</tr></thead><tbody>`;
-      index++;
-      while (index + 1 < lines.length && lines[index + 1].trim()) {
-        const row = tableCells(lines[index + 1]); if (!row) break;
-        index++; html += `<tr>${headers.map((_, i) => cellHtml(row[i], i, 'td')).join('')}</tr>`;
-      }
-      html += '</tbody></table>';
-      continue;
-    }
-    const heading = /^(#{1,6})\s+(.+)$/.exec(line);
-    if (heading) {
-      flush(); endList();
-      const n = heading[1].length;
-      if (!headingAnchors) { html += `<h${n}>${inline(heading[2])}</h${n}>`; continue; }
-      const label = heading[2].replace(/!\[([^\]]*)\]\([^)]*\)|\[([^\]]+)\]\([^)]*\)/g, (_, alt, text) => alt || text).replace(/[`*_]/g, '').trim();
-      const base = label.toLowerCase().replace(/\s+/gu, '-').replace(/[^\p{L}\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'heading';
-      let id = base, suffix = 1;
-      while (usedHeadingIds.has(id)) id = `${base}-${suffix++}`;
-      usedHeadingIds.add(id);
-      onHeading({level:n, id, label});
-      html += `<h${n} id="${escapeHtml(id)}">${inline(heading[2])}<a class="heading-anchor" href="#${encodeURIComponent(id)}" aria-label="${escapeHtml(`链接至：${label}`)}">#</a></h${n}>`;
-      continue;
-    }
-    const item = /^([ \t]*)([-*+]|\d{1,9}[.)])[ \t]+(.+)$/.exec(line);
-    if (item) {
-      flush();
-      const indent = item[1].replace(/\t/g, '    ').length;
-      const type = /^\d/.test(item[2]) ? 'ol' : 'ul';
-      addItem(indent, type, type === 'ol' ? Number.parseInt(item[2], 10) : 1, item[3]);
-      continue;
-    }
-    endList();
-    const quote = /^>\s?(.*)$/.exec(line);
-    if (quote) { flush(); html += `<blockquote>${inline(quote[1])}</blockquote>`; continue; }
-    para.push(line);
-  }
-  flush(); endList(); if (code !== null) html += `<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`;
-  return html;
+  });
+  return parser.parse(String(input ?? ''));
 }

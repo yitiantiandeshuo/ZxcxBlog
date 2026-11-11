@@ -77,7 +77,7 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 @media(max-width:639px){.site-avatar{width:2.5rem;height:2.5rem}.brand{gap:.5rem}.quick-search{margin-top:-1rem}}
 
 /* Markdown tables remain readable on narrow screens. */
-.content table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:1.5rem 0;font-size:.94em}.content th,.content td{border:1px solid var(--line);padding:.45rem .75rem;text-align:left}.content th{font-weight:600}.content .align-center{text-align:center}.content .align-right{text-align:right}.content .align-left{text-align:left}
+.content table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:1.5rem 0;font-size:.94em}.content th,.content td{border:1px solid var(--line);padding:.45rem .75rem;text-align:left}.content th{font-weight:600}.content .align-center,.content [align=center]{text-align:center}.content .align-right,.content [align=right]{text-align:right}.content .align-left,.content [align=left]{text-align:left}
 
 /* Writing and preview share the screen on wider layouts. */
 .editor-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;align-items:start}.editor-layout>.field{margin:14px 0}.preview-panel{margin:14px 0;border:1px solid var(--line);border-radius:4px;padding:.75rem;min-width:0;min-height:330px}.preview-heading{display:flex;justify-content:space-between;gap:.5rem;align-items:center;font-size:13px}.live-preview-toggle{display:flex;align-items:center;gap:.35rem;font-weight:normal}.live-preview-toggle input{width:auto}.preview-panel .status{margin:.3rem 0}.preview-panel .content{overflow-wrap:anywhere}
@@ -88,7 +88,7 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 .settings-checkbox{display:flex;align-items:center;gap:.5rem;margin:1rem 0}.settings-checkbox input{width:auto}
 
 /* Markdown task lists and section separators. */
-.content .task-list-item{list-style:none}.content .task-list-item input[type=checkbox]{display:inline-block;width:auto;margin:0 .25rem 0 -1.25rem;accent-color:var(--accent);vertical-align:middle}.content hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
+.content .task-list-item,.content li:has(>input[type=checkbox]),.content li:has(>p>input[type=checkbox]){list-style:none}.content .task-list-item input[type=checkbox],.content li>input[type=checkbox],.content li>p>input[type=checkbox]{display:inline-block;width:auto;margin:0 .25rem 0 -1.25rem;accent-color:var(--accent);vertical-align:middle}.content hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
 
 /* Optional personal navigation and sharing. */
 .social-links{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem;font-size:.875rem}.social-links a{color:var(--accent);border:0}.social-links a:hover{text-decoration:underline}

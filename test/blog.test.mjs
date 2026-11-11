@@ -169,35 +169,44 @@ test('search only queries published content once and escapes the query', async()
 
 test('markdown tables render aligned cells safely and preserve escaped pipes',()=>{
   const html=markdown('| 名称 | 值 |\n| :--- | ---: |\n| **加粗** | 3 |\n| a\\|b | `<x>` |\n\n后续');
-  assert.match(html,/<table><thead><tr><th class="align-left">名称<\/th><th class="align-right">值<\/th>/);
-  assert.match(html,/<td class="align-left"><strong>加粗<\/strong><\/td>/);
-  assert.match(html,/<td class="align-left">a\|b<\/td>/);
-  assert.match(html,/<code>&lt;x&gt;<\/code>/);assert.match(html,/<\/table><p>后续<\/p>/);
+  assert.match(html,/<th align="left">名称<\/th>/);assert.match(html,/<th align="right">值<\/th>/);
+  assert.match(html,/<td align="left"><strong>加粗<\/strong><\/td>/);assert.match(html,/<td align="left">a\|b<\/td>/);
+  assert.match(html,/<code>&lt;x&gt;<\/code>/);assert.match(html,/<\/table>\s*<p>后续<\/p>/);
   assert.doesNotMatch(markdown('```\n| A | B |\n| --- | --- |\n```'),/<table>/);
   assert.doesNotMatch(markdown('| A | B |\n| --- | nope |'),/<table>/);
 });
 
 test('markdown renders nested ordered and unordered lists with safe text',()=>{
-  const html=markdown('1. 第一\n   - 子项\n   - <script>\n     3. 深层\n2. 第二\n\n段落');
-  assert.equal(html,'<ol><li>第一<ul><li>子项</li><li>&lt;script&gt;<ol start="3"><li>深层</li></ol></li></ul></li><li>第二</li></ol><p>段落</p>');
-  assert.equal(markdown('- A\n- B\n1. C\n2. D'),'<ul><li>A</li><li>B</li></ul><ol><li>C</li><li>D</li></ol>');
-  assert.match(markdown('```\n1. 不解析\n```'),/<pre><code>1\. 不解析<\/code><\/pre>/);
+  const html=markdown('1. 第一\n   - 子项\n   - <script></script>\n     3. 深层\n2. 第二\n\n段落');
+  assert.match(html,/<ol>[\s\S]*第一[\s\S]*<ul>[\s\S]*子项/);
+  assert.match(html,/&lt;script&gt;&lt;\/script&gt;/);assert.match(html,/<ol start="3">[\s\S]*深层/);
+  assert.match(html,/<\/ol>\s*<p>段落<\/p>/);
+  assert.match(markdown('```\n1. 不解析\n```'),/<pre><code>1\. 不解析\n<\/code><\/pre>/);
 });
-
 
 test('markdown supports tasks, strikethrough and separators without parsing code',()=>{
   const html=markdown('- [ ] 待做\n- [x] 完成\n  - [X] 子任务\n\n~~旧内容~~\n\n---\n\n```\n- [x] 字面\n---\n```');
-  assert.match(html,/<li class="task-list-item"><input type="checkbox" disabled aria-label="未完成"> 待做/);
-  assert.match(html,/<input type="checkbox" disabled checked aria-label="已完成"> 完成/);
-  assert.match(html,/<ul><li class="task-list-item"><input type="checkbox" disabled checked aria-label="已完成"> 子任务/);
+  assert.match(html,/<input type="checkbox" disabled aria-label="未完成">待做/);
+  assert.match(html,/<input type="checkbox" disabled checked aria-label="已完成">完成/);
+  assert.match(html,/<input type="checkbox" disabled checked aria-label="已完成">子任务/);
   assert.match(html,/<del>旧内容<\/del>/);assert.match(html,/<hr>/);
-  assert.match(html,/<pre><code>- \[x\] 字面\n---<\/code><\/pre>/);
+  assert.match(html,/<pre><code>- \[x\] 字面\n---\n<\/code><\/pre>/);
   assert.match(markdown('`~~literal~~`'),/<code>~~literal~~<\/code>/);
   assert.doesNotMatch(markdown('- [x] <script>'),/<script>/);
 });
 
 test('list items retain indented continuation lines and separate paragraphs',()=>{
-  assert.equal(markdown('- 第一行\n  续行\n\n  第二段\n  继续\n\n- 第二项\n\n正文'),'<ul><li>第一行<br>续行<p>第二段<br>继续</p></li><li>第二项</li></ul><p>正文</p>');
-  assert.equal(markdown('1. 外层\n\n  - 子项\n\n2. 下一项'),'<ol><li>外层<ul><li>子项</li></ul></li><li>下一项</li></ol>');
+  const html=markdown('- 第一行\n  续行\n\n  第二段\n  继续\n\n- 第二项\n\n正文');
+  assert.match(html,/<p>第一行<br>续行<\/p>/);assert.match(html,/<p>第二段<br>继续<\/p>/);
+  assert.match(html,/<li><p>第二项<\/p>/);assert.match(html,/<\/ul>\s*<p>正文<\/p>/);
   assert.match(markdown('- 安全\n\n  <script>alert(1)</script>'),/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+});
+
+test('markdown supports references and rejects dangerous HTML and destinations',()=>{
+  const html=markdown('[链接][ref] ![图片][img]\n\n[ref]: https://example.com\n[img]: /media/example.png');
+  assert.match(html,/<a href="https:\/\/example.com"/);assert.match(html,/<img src="\/media\/example.png"/);
+  for(const input of ['[x](javascript:alert(1))','[x](java&#x73;cript:alert(1))','![x](//evil.example/x)','<img src=x onerror=alert(1)>']){
+    const result=markdown(input);assert.doesNotMatch(result,/<(?:img|a)\b/);
+  }
+  assert.doesNotMatch(markdown('<script>\n\n![x](/media/example.png)'),/<img\b/);
 });
