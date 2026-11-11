@@ -1,12 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createPreviewController} from '../src/preview.mjs';
+import {previewControllerSource} from '../src/preview.mjs';
+import {runInNewContext} from 'node:vm';
+const createPreviewController = runInNewContext(`(${previewControllerSource})`, {setTimeout, clearTimeout});
 
 test('automatic preview is opt-in and debounces typing', async()=>{
   let content='one', pending, calls=0, rendered;
   const controller=createPreviewController({read:()=>content,request:async x=>{calls++;return x},render:x=>{rendered=x},report:()=>{},setTimer:fn=>{pending=fn;return 1},clearTimer:()=>{pending=undefined}});
   controller.changed();assert.equal(calls,0);assert.equal(pending,undefined);
-  controller.setEnabled(true);await Promise.resolve();assert.equal(calls,1);assert.equal(rendered,'one');
+  controller.setEnabled(true);await new Promise(resolve => setImmediate(resolve));assert.equal(calls,1);assert.equal(rendered,'one');
   content='two';controller.changed();content='three';controller.changed();assert.equal(calls,1);
   await pending();assert.equal(calls,2);assert.equal(rendered,'three');
   content='four';controller.changed();controller.setEnabled(false);assert.equal(pending,undefined);

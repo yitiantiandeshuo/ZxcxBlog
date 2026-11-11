@@ -1,5 +1,5 @@
 import { escapeHtml as e, markdown } from './markdown.mjs';
-import { createPreviewController } from './preview.mjs';
+import { previewControllerSource } from './preview.mjs';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const decode = s => Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
@@ -87,7 +87,7 @@ export async function adminApi(req, env, url) {
   } catch (err) { console.error('Admin API error',err); return json({error: err instanceof SyntaxError ? '请求格式无效' : (err.message?.startsWith('请检查') || err.message === '文章格式无效' ? err.message : '保存失败，请检查短链接是否重复或稍后重试')},400); }
 }
 export function adminPage() { return `<h1>文章管理</h1><p class="muted">使用 Markdown 写作。短链接使用小写英文字母、数字和连字符。</p><div class="toolbar"><button type="button" id="new">新建文章</button><a class="button secondary" href="/api/admin/export">导出文章备份</a></div><div id="notice" class="notice" role="status"></div><section class="panel"><h2 style="margin-top:0">文章列表</h2><div id="posts">加载中…</div></section><form id="editor" class="panel"><h2 style="margin-top:0">编辑文章</h2><input type="hidden" name="id"><input type="hidden" name="updated_at"><label class="field"><span>标题</span><input name="title" required maxlength="200"></label><label class="field"><span>短链接</span><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" maxlength="120" placeholder="my-first-post"></label><div class="row"><label class="field"><span>分类</span><input name="category" maxlength="60"></label><label class="field"><span>标签（逗号分隔）</span><input name="tags"></label></div><label class="field"><span>摘要（可选）</span><input name="excerpt" maxlength="500"></label><div class="editor-layout"><label class="field"><span>正文（Markdown）</span><textarea class="editor" name="content"></textarea></label><section class="preview-panel" aria-label="文章预览"><div class="preview-heading"><strong>预览</strong><label class="live-preview-toggle"><input id="livePreview" type="checkbox">自动预览</label></div><p id="previewStatus" class="status" role="status">点击预览，或开启自动预览。</p><div id="previewResult" class="content post-content"></div></section></div><label class="field"><span>上传图片（不超过 5 MB）</span><input id="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp"></label><div class="toolbar"><button type="button" id="upload" class="secondary">上传并插入图片</button><button type="button" id="preview" class="secondary">预览</button><button type="submit" name="status" value="draft">保存草稿</button><button type="submit" name="status" value="published">发布文章</button></div></form><script>
-const createPreviewController = ${createPreviewController.toString()};
+${previewControllerSource}
 const form=document.querySelector('#editor'), notice=document.querySelector('#notice'), postsEl=document.querySelector('#posts'); let posts=[];
 function message(s){notice.textContent=s;}
 async function api(path, options={}){const r=await fetch(path,options);let d=await r.json();if(!r.ok)throw Error(d.error||'请求失败');return d;}

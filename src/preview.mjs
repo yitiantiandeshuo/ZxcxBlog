@@ -1,5 +1,5 @@
 // Shared with the browser as source so scheduling and stale-response handling are testable.
-export function createPreviewController({read, request, render, report, delay = 1200, setTimer = setTimeout, clearTimer = clearTimeout}) {
+export const previewControllerSource = `function createPreviewController({read, request, render, report, delay = 1200, setTimer = setTimeout, clearTimer = clearTimeout}) {
   let sequence = 0, timer, enabled = false;
   function invalidate() { sequence++; if (timer !== undefined) clearTimer(timer); timer = undefined; }
   async function run() {
@@ -22,4 +22,4 @@ export function createPreviewController({read, request, render, report, delay = 
     if (enabled) run(); else report('自动预览已关闭');
   }
   return {run, changed, invalidate, setEnabled};
-}
+}`;
