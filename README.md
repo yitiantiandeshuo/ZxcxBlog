@@ -2,6 +2,8 @@
 
 一个运行在自己 Cloudflare 账户里的轻量个人博客。公开站点专注阅读，受保护的后台提供 Markdown 写作、图片上传和站点设置；不需要维护独立服务器或部署 Halo。
 
+公开页面示例：[查看博客](https://zxcx-blog.zxcx-blog.workers.dev/)（实际内容和显示设置可能变化）。
+
 布局和部分样式参考并改编自 [Higan Haozi](https://howiehz.top/halo-theme-higan-haozi/)。这个项目是独立实现，并不包含 Halo CMS，也不要求安装 Halo。
 
 ## 功能
@@ -54,7 +56,13 @@ npx --no-install wrangler r2 bucket create my-blog-images
 
 ### 3. 配置自己的 Worker
 
-编辑 [wrangler.toml](wrangler.toml)，至少修改以下值：
+复制不含账户资源的模板，再编辑 `wrangler.local.toml`：
+
+```sh
+cp wrangler.example.toml wrangler.local.toml
+```
+
+Windows PowerShell 可用 `Copy-Item wrangler.example.toml wrangler.local.toml`。个人配置已列入 `.gitignore`；后续部署命令都需要 `--config wrangler.local.toml`。至少修改以下值：
 
 ```toml
 name = "my-blog" # 自己的 Worker 名称；不要与已有 Worker 重名
@@ -70,7 +78,7 @@ binding = "BUCKET" # 保持不变
 bucket_name = "my-blog-images"
 ```
 
-**必须替换仓库里原有的 `database_id`，不要直接使用它。**上面的片段只展示需要核对的字段，保留文件中的其他配置。`workers_dev = true` 用于初始访问，`preview_urls = false` 禁用额外预览 URL。`SITE_TITLE` 和 `SITE_DESCRIPTION` 可先修改，之后可以在后台“站点设置”调整；已经保存的后台设置会覆盖这两个默认值。
+**必须将模板中的 `database_id` 替换为自己的 D1 ID。**仓库中的 `wrangler.toml` 服务于项目维护者的现有站点，不应作为你的部署配置。上面的片段只展示需要核对的字段，保留文件中的其他配置。`workers_dev = true` 用于初始访问，`preview_urls = false` 禁用额外预览 URL。`SITE_TITLE` 和 `SITE_DESCRIPTION` 可先修改，之后可以在后台“站点设置”调整；已经保存的后台设置会覆盖这两个默认值。
 
 如果将自己的配置推送到公开仓库，请检查不包含密码、令牌、Access 邮箱或其他不希望公开的信息。数据库 ID、资源名称和账户环境也应按个人情况处理。
 
@@ -79,8 +87,8 @@ bucket_name = "my-blog-images"
 以下 `DB` 是配置里的 binding 名称。**确认它指向刚创建的空数据库**，不要对不确定的现有生产库应用迁移。
 
 ```sh
-npx --no-install wrangler d1 migrations apply DB --remote
-npx --no-install wrangler deploy
+npx --no-install wrangler d1 migrations apply DB --remote --config wrangler.local.toml
+npx --no-install wrangler deploy --config wrangler.local.toml
 ```
 
 按提示确认迁移。部署会将 Worker 发布到 Cloudflare；记录 Wrangler 输出的 `https://<worker>.<子域名>.workers.dev` 地址。首次设置 `workers.dev` 子域名时，按 Cloudflare 控制台或 Wrangler 提示完成。
@@ -101,9 +109,9 @@ npx --no-install wrangler deploy
 在终端分别执行下列命令，按提示交互输入值；不要将值写入仓库或粘贴到公开聊天中：
 
 ```sh
-npx --no-install wrangler secret put ACCESS_TEAM_DOMAIN
-npx --no-install wrangler secret put ACCESS_AUD
-npx --no-install wrangler secret put ADMIN_EMAIL
+npx --no-install wrangler secret put ACCESS_TEAM_DOMAIN --config wrangler.local.toml
+npx --no-install wrangler secret put ACCESS_AUD --config wrangler.local.toml
+npx --no-install wrangler secret put ADMIN_EMAIL --config wrangler.local.toml
 ```
 
 `ACCESS_TEAM_DOMAIN` 填完整 `https://…cloudflareaccess.com`，不带末尾路径；`ACCESS_AUD` 填上一步应用的 Audience tag；`ADMIN_EMAIL` 填 Allow 策略中允许的站长邮箱。**每次 `secret put` 都会立即创建并部署一个 Worker 版本**；缺少任何一项或身份不匹配时，管理端保持拒绝访问。[Cloudflare Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)
@@ -127,13 +135,13 @@ Markdown 使用 `marked`，支持表格、任务列表、引用式链接及嵌�
 
 ## 更新
 
-更新前先备份文章和图片，并核对当前 `wrangler.toml` 是否仍指向自己的 Worker、数据库和桶。拉取新版本时保留自己的配置，查看版本说明和迁移内容，再运行：
+更新前先备份文章和图片，并核对当前 `wrangler.local.toml` 是否仍指向自己的 Worker、数据库和桶。拉取新版本时保留自己的配置，查看版本说明和迁移内容，再运行：
 
 ```sh
 npm ci
 npm test
-npx --no-install wrangler d1 migrations apply DB --remote
-npx --no-install wrangler deploy
+npx --no-install wrangler d1 migrations apply DB --remote --config wrangler.local.toml
+npx --no-install wrangler deploy --config wrangler.local.toml
 ```
 
 命令会修改远程数据库及生产 Worker；请确认目标账户和资源后执行。没有未应用迁移时 Wrangler 会提示。更新后重新检查首页、文章、图片和后台认证。若项目配置有本地修改，先妥善保存并处理 Git 冲突，不要直接覆盖。
@@ -142,7 +150,7 @@ npx --no-install wrangler deploy
 
 1. 停止写作和上传，后台点击“导出文章备份”，下载包含文章、草稿和站点设置的 JSON。文件含私人内容，请安全保存。
 2. 登录后台后在浏览器访问 `/api/admin/images` 获取 R2 对象键清单，通过 R2 控制台下载所有图片并保留原对象键；也可自行选择 Cloudflare 支持的工具批量备份。JSON 不包含图片；更换头像或图标不会自动删除旧图片。
-3. 恢复时先创建隔离的空 D1 和新 R2 桶，在新数据库应用迁移。执行 `python3 tools/backup_to_sql.py /安全位置/blog-backup.json > /安全位置/restore.sql`，审阅 SQL，再使用 `wrangler d1 execute DB --remote --file /安全位置/restore.sql` 导入**已确认绑定到新数据库**的目标。SQL 为仅插入操作，不用于覆盖现有文章。
+3. 恢复时先创建隔离的空 D1 和新 R2 桶，在新数据库应用迁移。执行 `python3 tools/backup_to_sql.py /安全位置/blog-backup.json > /安全位置/restore.sql`，审阅 SQL，再使用 `wrangler d1 execute DB --remote --file /安全位置/restore.sql --config wrangler.local.toml` 导入**已确认绑定到新数据库**的目标。SQL 为仅插入操作，不用于覆盖现有文章。
 4. 按原对象键上传图片并设置正确的 Content-Type，核对文章、草稿、设置和图片后再切换站点。不要直接在生产库试验。备份并非跨 D1/R2 的原子快照，期间应停止写入。不要把备份、图片、SQL 或密钥提交到 Git。
 
 ## 图片访问、缓存与费用
@@ -157,7 +165,7 @@ npx --no-install wrangler deploy
 - `src/markdown.mjs`、`src/style.mjs`：Markdown 渲染与样式。
 - `migrations/`：D1 数据库迁移；`test/`：Node 内置测试；`tools/`：备份恢复辅助工具。
 
-`npm test` 不需要连接 Cloudflare。使用 `npx --no-install wrangler dev` 可启动本地 Worker；先用 `npx --no-install wrangler d1 migrations apply DB --local` 初始化本地 D1。普通本地运行不能代替真实 Access 登录和生产安全验收，且本地数据与线上数据分开。需要退出 Wrangler 时使用 `npx --no-install wrangler logout`；不要提交授权文件、`node_modules` 或本地数据。
+`npm test` 不需要连接 Cloudflare。使用 `npx --no-install wrangler dev --config wrangler.local.toml` 可启动本地 Worker；先用 `npx --no-install wrangler d1 migrations apply DB --local --config wrangler.local.toml` 初始化本地 D1。普通本地运行不能代替真实 Access 登录和生产安全验收，且本地数据与线上数据分开。需要退出 Wrangler 时使用 `npx --no-install wrangler logout`；不要提交授权文件、`node_modules` 或本地数据。
 
 ## 许可与致谢
 

@@ -79,9 +79,11 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 /* Markdown tables remain readable on narrow screens. */
 .content table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:1.5rem 0;font-size:.94em}.content th,.content td{border:1px solid var(--line);padding:.45rem .75rem;text-align:left}.content th{font-weight:600}.content .align-center,.content [align=center]{text-align:center}.content .align-right,.content [align=right]{text-align:right}.content .align-left,.content [align=left]{text-align:left}
 
+/* Visible keyboard focus and readable touch targets. */
+a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 /* Writing and preview share the screen on wider layouts. */
-.editor-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;align-items:start}.editor-layout>.field{margin:14px 0}.preview-panel{margin:14px 0;border:1px solid var(--line);border-radius:4px;padding:.75rem;min-width:0;min-height:330px}.preview-heading{display:flex;justify-content:space-between;gap:.5rem;align-items:center;font-size:13px}.live-preview-toggle{display:flex;align-items:center;gap:.35rem;font-weight:normal}.live-preview-toggle input{width:auto}.preview-panel .status{margin:.3rem 0}.preview-panel .content{overflow-wrap:anywhere}
-@media(max-width:800px){.editor-layout{grid-template-columns:1fr}.preview-panel{min-height:160px;margin-top:0}}
+.editor-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;align-items:start}.editor-layout>.field{margin:14px 0}.preview-panel{margin:14px 0;border:1px solid var(--line);border-radius:4px;padding:.75rem;min-width:0;min-height:330px}.preview-heading{display:flex;justify-content:space-between;gap:.5rem;align-items:center;font-size:13px}.live-preview-toggle{display:flex;align-items:center;gap:.35rem;font-weight:normal}.live-preview-toggle input{width:auto}.preview-panel .status{margin:.3rem 0}.preview-panel .content{overflow-wrap:anywhere;max-height:60vh;overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:800px){.editor-layout{grid-template-columns:1fr}.editor{font-size:16px;min-height:45vh}.preview-panel{min-height:160px;margin-top:0}.preview-panel .content{max-height:none;overflow:visible}}
 
 .settings-image{display:block;width:4rem;height:4rem;object-fit:cover;border-radius:.4rem;margin:.5rem 0}.settings-image[hidden]{display:none}#siteSettings input[type=file]{margin-bottom:.5rem}
 

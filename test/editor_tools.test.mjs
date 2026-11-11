@@ -10,3 +10,5 @@ test('toolbar inserts usable placeholders and ignores unknown actions',()=>{cons
 test('embedded admin script stays syntactically valid as delivered',async()=>{
  const {adminPage}=await import('../src/admin.mjs');const html=adminPage();const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];assert.equal(scripts.length,1);assert.doesNotThrow(()=>new Function(scripts[0][1]));
 });
+
+test('code block toolbar wraps selected code and triggers the editor update',()=>{const f=field('const x = 1;',0,12);apply(f,'codeblock');assert.equal(f.value,'\n```\nconst x = 1;\n```\n');assert.deepEqual(f.events,['input'])});
