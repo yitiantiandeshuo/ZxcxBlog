@@ -16,5 +16,25 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 .post-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.3125rem 1rem}
 .post-list li{display:contents}.post-list time{min-width:0;font-size:.875rem;color:#777}.post-list a{min-width:0;overflow-wrap:anywhere}
 @media(max-width:639px){.wrap{padding:0 1rem}header{padding-top:3rem;margin-bottom:2rem}.nav{gap:.6rem 0;line-height:1.5}.nav a{padding:0 .65rem}.post-list{display:block}.post-list li{display:block;margin:0 0 1rem;padding:0}.post-list time{display:block}}
+/* Article typography adapted from Higan Haozi; see licenses/higan-haozi-MIT.txt. */
+.post-heading{margin-bottom:2rem}
+.post-heading h1{font-size:1.5em;line-height:1.3;letter-spacing:.01em;overflow-wrap:anywhere;margin:0 0 .5rem}
+.post-heading .meta{margin:0 0 .65rem;color:#777;font-size:.875rem}
+.post-heading .chips{gap:.5rem 1rem}
+.post-content{line-height:1.725;overflow-wrap:break-word}
+.post-content p{margin:1rem 0;hyphens:auto}
+.post-content h1,.post-content h2,.post-content h3,.post-content h4,.post-content h5,.post-content h6{line-height:1.4;overflow-wrap:anywhere}
+.post-content h1{font-size:1.5em;color:var(--accent);margin:3rem 0 1rem}
+.post-content h2{font-size:1.25em;margin:2rem 0 .5rem}
+.post-content h3{font-size:1.1em;margin:1.5rem 0 .5rem}
+.post-content h4,.post-content h5,.post-content h6{font-size:1em;margin:1rem 0 .5rem}
+.post-content a{text-decoration:underline;text-underline-offset:.2em;border:0}
+.post-content blockquote{margin:1.5rem 0;padding:.1rem 1rem;border-left:3px solid var(--accent);color:#777}
+.post-content :not(pre)>code{border:1px dotted #999;border-radius:.125rem;padding:0 .3125rem;overflow-wrap:anywhere}
+.post-content pre{margin:1.5rem 0;padding:1rem;line-height:1.5;overflow-x:auto;border-radius:.125rem}
+.post-content pre code{display:block;border:0;padding:0;white-space:pre;overflow-wrap:normal}
+.post-content img{display:block;max-width:100%;height:auto;margin:1.5rem auto}
+.post-content ul,.post-content ol{padding-left:1.5rem}
+@media(max-width:639px){.post-heading{margin-bottom:1.5rem}.post-content pre{margin-left:-.5rem;margin-right:-.5rem}}
 
 `;
