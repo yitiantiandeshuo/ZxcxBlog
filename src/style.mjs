@@ -76,4 +76,7 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 .quick-search{display:flex;gap:.5rem;max-width:24rem;margin:-1.5rem 0 2rem}.quick-search input{min-width:0}.quick-search button{flex:none}.quick-search input:focus-visible,.quick-search button:focus-visible,.avatar-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media(max-width:639px){.site-avatar{width:2.5rem;height:2.5rem}.brand{gap:.5rem}.quick-search{margin-top:-1rem}}
 
+/* Markdown tables remain readable on narrow screens. */
+.content table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:1.5rem 0;font-size:.94em}.content th,.content td{border:1px solid var(--line);padding:.45rem .75rem;text-align:left}.content th{font-weight:600}.content .align-center{text-align:center}.content .align-right{text-align:right}.content .align-left{text-align:left}
+
 `;

@@ -16,16 +16,45 @@ function inline(value) {
   s = escapeHtml(s).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
   return s.replace(/\u0000(\d+)\u0000/g, (_, n) => tokens[Number(n)]);
 }
+// Split table cells without treating escaped pipes or pipes in inline code as separators.
+function tableCells(line) {
+  const cells = []; let cell = '', code = false, separators = 0;
+  const text = line.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '\\' && text[i + 1] === '|') { cell += '|'; i++; }
+    else if (c === '`') { code = !code; cell += c; }
+    else if (c === '|' && !code) { cells.push(cell.trim()); cell = ''; separators++; }
+    else cell += c;
+  }
+  cells.push(cell.trim());
+  return separators || line.trim().startsWith('|') || line.trim().endsWith('|') ? cells : null;
+}
 export function markdown(input, { headingAnchors = false, onHeading = () => {} } = {}) {
   const usedHeadingIds = new Set();
   const lines = String(input ?? '').replace(/\r\n?/g, '\n').split('\n');
   let html = '', para = [], list = false, code = null;
   const flush = () => { if (para.length) { html += `<p>${para.map(inline).join('<br>')}</p>`; para = []; } };
   const endList = () => { if (list) { html += '</ul>'; list = false; } };
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
     if (/^```/.test(line)) { flush(); endList(); if (code === null) code = []; else { html += `<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`; code = null; } continue; }
     if (code !== null) { code.push(line); continue; }
     if (!line.trim()) { flush(); endList(); continue; }
+    const headers = tableCells(line), separators = index + 1 < lines.length ? tableCells(lines[index + 1]) : null;
+    if (headers && separators && headers.length === separators.length && separators.every(cell => /^:?-{3,}:?$/.test(cell))) {
+      flush(); endList();
+      const alignment = separators.map(cell => cell.startsWith(':') && cell.endsWith(':') ? 'center' : cell.endsWith(':') ? 'right' : cell.startsWith(':') ? 'left' : '');
+      const cellHtml = (cell, column, tag) => `<${tag}${alignment[column] ? ` class="align-${alignment[column]}"` : ''}>${inline(cell || '')}</${tag}>`;
+      html += `<table><thead><tr>${headers.map((cell, i) => cellHtml(cell, i, 'th')).join('')}</tr></thead><tbody>`;
+      index++;
+      while (index + 1 < lines.length && lines[index + 1].trim()) {
+        const row = tableCells(lines[index + 1]); if (!row) break;
+        index++; html += `<tr>${headers.map((_, i) => cellHtml(row[i], i, 'td')).join('')}</tr>`;
+      }
+      html += '</tbody></table>';
+      continue;
+    }
     const heading = /^(#{1,6})\s+(.+)$/.exec(line);
     if (heading) {
       flush(); endList();

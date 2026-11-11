@@ -49,7 +49,8 @@ test('D1/R2 workflow: drafts, media visibility, publishing and stale edits', asy
   const form=new FormData();form.set('file',new File([Uint8Array.from([137,80,78,71,13,10,26,10,0])],'test.png',{type:'image/png'}));
   const imageReq=new Request('https://blog.test/api/admin/images',{method:'POST',headers:{Origin:'https://blog.test'},body:form});
   const upload=await adminApi(imageReq,E,new URL(imageReq.url));assert.equal(upload.status,200);const image=(await upload.json()).url;
-  const input={title:'Draft title',slug:'draft-title',content:`![secret](${image})`,category:'笔记',tags:['test'],status:'draft'};
+  const input={title:'Draft title',slug:'draft-title',content:`| 图片 | 说明 |\n| --- | --- |\n| ![secret](${image}) | 测试 |`,category:'笔记',tags:['test'],status:'draft'};
+  const preview=await api('/api/admin/preview',{content:input.content});assert.match((await preview.json()).html, /src="\/api\/admin\/media\//);
   let r=await api('/api/admin/posts',input);assert.equal(r.status,200);let saved=await r.json();
   assert.equal((await worker.fetch(new Request('https://blog.test'+image),E)).status,404);
   assert.equal((await worker.fetch(new Request('https://blog.test/post/draft-title'),E)).status,404);
@@ -162,4 +163,14 @@ test('search only queries published content once and escapes the query', async()
   const page=await (await worker.fetch(new Request('https://blog.test/search?q=%3Cx%3E'),{...env,DB})).text();
   assert.equal(calls.length,1);assert.match(calls[0],/status = 'published'/);
   assert.match(page,/value="&lt;x&gt;"/);assert.match(page,/\/post\/find/);
+});
+
+test('markdown tables render aligned cells safely and preserve escaped pipes',()=>{
+  const html=markdown('| 名称 | 值 |\n| :--- | ---: |\n| **加粗** | 3 |\n| a\\|b | `<x>` |\n\n后续');
+  assert.match(html,/<table><thead><tr><th class="align-left">名称<\/th><th class="align-right">值<\/th>/);
+  assert.match(html,/<td class="align-left"><strong>加粗<\/strong><\/td>/);
+  assert.match(html,/<td class="align-left">a\|b<\/td>/);
+  assert.match(html,/<code>&lt;x&gt;<\/code>/);assert.match(html,/<\/table><p>后续<\/p>/);
+  assert.doesNotMatch(markdown('```\n| A | B |\n| --- | --- |\n```'),/<table>/);
+  assert.doesNotMatch(markdown('| A | B |\n| --- | nope |'),/<table>/);
 });
