@@ -16,7 +16,8 @@ function inline(value) {
   s = escapeHtml(s).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
   return s.replace(/\u0000(\d+)\u0000/g, (_, n) => tokens[Number(n)]);
 }
-export function markdown(input) {
+export function markdown(input, { headingAnchors = false } = {}) {
+  const usedHeadingIds = new Set();
   const lines = String(input ?? '').replace(/\r\n?/g, '\n').split('\n');
   let html = '', para = [], list = false, code = null;
   const flush = () => { if (para.length) { html += `<p>${para.map(inline).join('<br>')}</p>`; para = []; } };
@@ -26,7 +27,18 @@ export function markdown(input) {
     if (code !== null) { code.push(line); continue; }
     if (!line.trim()) { flush(); endList(); continue; }
     const heading = /^(#{1,6})\s+(.+)$/.exec(line);
-    if (heading) { flush(); endList(); const n = heading[1].length; html += `<h${n}>${inline(heading[2])}</h${n}>`; continue; }
+    if (heading) {
+      flush(); endList();
+      const n = heading[1].length;
+      if (!headingAnchors) { html += `<h${n}>${inline(heading[2])}</h${n}>`; continue; }
+      const label = heading[2].replace(/!\[([^\]]*)\]\([^)]*\)|\[([^\]]+)\]\([^)]*\)/g, (_, alt, text) => alt || text).replace(/[`*_]/g, '').trim();
+      const base = label.toLowerCase().replace(/\s+/gu, '-').replace(/[^\p{L}\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'heading';
+      let id = base, suffix = 1;
+      while (usedHeadingIds.has(id)) id = `${base}-${suffix++}`;
+      usedHeadingIds.add(id);
+      html += `<h${n} id="${escapeHtml(id)}">${inline(heading[2])}<a class="heading-anchor" href="#${encodeURIComponent(id)}" aria-label="${escapeHtml(`链接至：${label}`)}">#</a></h${n}>`;
+      continue;
+    }
     const item = /^\s*[-*+]\s+(.+)$/.exec(line);
     if (item) { flush(); if (!list) { html += '<ul>'; list = true; } html += `<li>${inline(item[1])}</li>`; continue; }
     endList();

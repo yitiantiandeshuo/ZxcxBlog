@@ -83,3 +83,16 @@ test('archive groups published posts by year, newest first, and excludes drafts'
     db.exec('DELETE FROM posts');const empty=await worker.fetch(new Request('https://blog.test/archive'),{...env,DB});assert.match(await empty.text(),/这里暂时还没有文章/);
   }finally{db.close()}
 });
+
+test('article heading permalinks support unicode and unique duplicate IDs', () => {
+  const html = markdown('# 中文 标题\n## 中文 标题\n## 中文 标题-1\n## 中文 标题\n## !!!\n## [链接](https://example.com)\n## <script>', {headingAnchors:true});
+  assert.match(html, /id="中文-标题"/);
+  assert.match(html, /href="#%E4%B8%AD%E6%96%87-%E6%A0%87%E9%A2%98"/);
+  assert.match(html, /id="中文-标题-1"/);
+  assert.match(html, /id="中文-标题-1-1"/);
+  assert.match(html, /id="中文-标题-2"/);
+  assert.match(html, /id="heading"/);
+  assert.match(html, /id="链接"/);
+  assert.doesNotMatch(html, /<script>/);
+  assert.equal(markdown('# 标题'), '<h1>标题</h1>');
+});

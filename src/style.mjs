@@ -52,4 +52,9 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 :root[data-theme="dark"] button.secondary,:root[data-theme="dark"] .button.secondary{background:#424548;color:var(--ink)}
 @media(max-width:639px){.brand{padding-right:3.5rem}.brand .logo{max-width:none;min-width:0;overflow-wrap:anywhere}}
 
+/* Article heading permalinks, inspired by Higan Haozi. */
+.heading-anchor{display:inline-block;margin-left:.45em;color:var(--accent);font-size:.8em;opacity:0;text-decoration:none!important;transition:opacity .15s}
+.post-content h1:hover .heading-anchor,.post-content h2:hover .heading-anchor,.post-content h3:hover .heading-anchor,.post-content h4:hover .heading-anchor,.post-content h5:hover .heading-anchor,.post-content h6:hover .heading-anchor,.heading-anchor:focus-visible{opacity:1}
+@media(hover:none){.heading-anchor{opacity:1}}
+
 `;

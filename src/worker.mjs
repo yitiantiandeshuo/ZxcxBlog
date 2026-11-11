@@ -91,7 +91,7 @@ export default { async fetch(request, env) {
       const slug = decodeURIComponent(path.slice(6));
       const p = await env.DB.prepare("SELECT * FROM posts WHERE slug = ? AND status = 'published'").bind(slug).first();
       if (!p) return response(layout(env,'<h1>文章不存在</h1>'),404);
-      return response(layout(env,`<article class="post"><div class="post-heading"><h1>${e(p.title)}</h1><p class="meta"><time datetime="${e(p.published_at || '')}">${e((p.published_at || '').slice(0,10))}</time></p>${tagLinks(p)}</div><div class="content post-content">${markdown(p.content)}</div></article>`,p.title));
+      return response(layout(env,`<article class="post"><div class="post-heading"><h1>${e(p.title)}</h1><p class="meta"><time datetime="${e(p.published_at || '')}">${e((p.published_at || '').slice(0,10))}</time></p>${tagLinks(p)}</div><div class="content post-content">${markdown(p.content, {headingAnchors:true})}</div></article>`,p.title));
     }
     if (path === '/about') return response(layout(env,'<h1>关于</h1><div class="content"><p>你好，欢迎来到我的博客。</p><p>这里记录生活与思考。</p></div>','关于'));
     if (!['/','/archive','/topics','/search'].includes(path) && !path.startsWith('/category/') && !path.startsWith('/tag/')) return response(layout(env,'<h1>页面不存在</h1>'),404);
