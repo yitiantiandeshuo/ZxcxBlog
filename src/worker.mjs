@@ -84,7 +84,7 @@ export default { async fetch(request, env) {
     if (path === '/about') return response(layout(env,'<h1>关于</h1><div class="content"><p>你好，欢迎来到我的博客。</p><p>这里记录生活与思考。</p></div>','关于'));
     if (!['/','/archive','/topics','/search'].includes(path) && !path.startsWith('/category/') && !path.startsWith('/tag/')) return response(layout(env,'<h1>页面不存在</h1>'),404);
     const posts = await publicPosts(env);
-    if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><h2>近期发布</h2>${listing(posts.slice(0,15))}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
+    if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><h2 class="home-posts-title"><a href="/archive">近期发布</a></h2>${listing(posts.slice(0,15))}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
     if (path === '/archive') return response(layout(env,`<h1>归档</h1>${listing(posts)}`,'归档'));
     if (path === '/topics') {
       const categories = [...new Set(posts.map(p=>p.category).filter(Boolean))].sort();
