@@ -141,3 +141,24 @@ test('adjacent article navigation excludes drafts and follows archive ordering',
     assert.match(home,/A &lt;safe&gt; excerpt/);assert.doesNotMatch(home,/Secret/);
   } finally {db.close()}
 });
+
+test('site identity accepts safe image URLs and homepage offers search', async()=>{
+  const DB={prepare(){return {async all(){return {results:[]}}}}};
+  const req=()=>new Request('https://blog.test/');
+  const page=await (await worker.fetch(req(),{...env,DB,SITE_AVATAR_URL:'https://images.example/avatar.png?x=1&y=2',SITE_ICON_URL:'https://images.example/icon.png'})).text();
+  assert.match(page,/src="https:\/\/images.example\/avatar.png\?x=1&amp;y=2"/);
+  assert.match(page,/<link rel="icon" href="https:\/\/images.example\/icon.png">/);
+  assert.match(page,/<form class="quick-search" action="\/search" role="search">/);
+  const fallback=await (await worker.fetch(req(),{...env,DB,SITE_AVATAR_URL:'javascript:alert(1)',SITE_ICON_URL:'https://user:pass@example.com/icon'})).text();
+  assert.match(fallback,/avatar-placeholder/);assert.match(fallback,/href="\/favicon.svg"/);assert.doesNotMatch(fallback,/javascript:alert/);
+  const icon=await worker.fetch(new Request('https://blog.test/favicon.svg'),{...env,DB});
+  assert.equal(icon.status,200);assert.match(icon.headers.get('content-type'),/image\/svg\+xml/);
+  const head=await worker.fetch(new Request('https://blog.test/favicon.svg',{method:'HEAD'}),{...env,DB});assert.equal(await head.text(),'');
+});
+
+test('search only queries published content once and escapes the query', async()=>{
+  const calls=[];const DB={prepare(sql){calls.push(sql);return {async all(){return {results:[{title:'Find',slug:'find',content:'need <x>',excerpt:'',category:'',tags:'[]',published_at:'2026-01-01'}]}}}}};
+  const page=await (await worker.fetch(new Request('https://blog.test/search?q=%3Cx%3E'),{...env,DB})).text();
+  assert.equal(calls.length,1);assert.match(calls[0],/status = 'published'/);
+  assert.match(page,/value="&lt;x&gt;"/);assert.match(page,/\/post\/find/);
+});

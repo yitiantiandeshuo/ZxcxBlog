@@ -18,10 +18,18 @@ function archiveListing(posts) {
   }
   return [...years].map(([year, entries]) => `<section class="archive-year"><h2>${e(year)}</h2>${listing(entries)}</section>`).join('');
 }
+function assetUrl(value) {
+  const s = String(value || '').trim();
+  if (/^\/media\/[a-f0-9-]{36}\.(?:png|jpg|gif|webp)$/.test(s)) return s;
+  try { const url = new URL(s); if (url.protocol === 'https:' && !url.username && !url.password) return url.href; } catch {}
+  return '';
+}
 function layout(env, body, title = '') {
   const name = e(env.SITE_TITLE || '我的博客');
+  const avatar = assetUrl(env.SITE_AVATAR_URL);
+  const icon = assetUrl(env.SITE_ICON_URL) || '/favicon.svg';
   const navigation = '<a href="/archive">归档</a><a href="/topics">分类与标签</a><a href="/about">关于</a><a href="/search">搜索</a>';
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${e(env.SITE_DESCRIPTION || '记录生活与思考。')}"><title>${title ? e(title)+' · ' : ''}${name}</title><style>${css}</style><script>${themeScript}</script></head><body><div class="wrap"><header><div class="brand"><a class="logo" href="/">${name}</a><button class="theme-toggle" type="button" aria-label="切换深浅色" aria-pressed="false"><span class="theme-moon" aria-hidden="true">☾</span><span class="theme-sun" aria-hidden="true">☀</span></button></div><nav class="nav nav-desktop" aria-label="主导航">${navigation}</nav><details class="mobile-menu"><summary aria-label="导航菜单"><span aria-hidden="true">☰</span></summary><nav class="nav nav-mobile" aria-label="主导航">${navigation}</nav></details></header><main>${body}</main><footer><span>© ${new Date().getUTCFullYear()} ${name}</span><span><a href="/admin">管理</a></span></footer></div></body></html>`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${e(env.SITE_DESCRIPTION || '记录生活与思考。')}"><title>${title ? e(title)+' · ' : ''}${name}</title><link rel="icon" href="${e(icon)}"><style>${css}</style><script>${themeScript}</script></head><body><div class="wrap"><header><div class="brand"><a class="avatar-link" href="/" aria-label="返回首页">${avatar ? `<img class="site-avatar" src="${e(avatar)}" alt="">` : `<span class="site-avatar avatar-placeholder" aria-hidden="true">${e(Array.from(String(env.SITE_TITLE || '我').trim())[0] || '我')}</span>`}</a><a class="logo" href="/">${name}</a><button class="theme-toggle" type="button" aria-label="切换深浅色" aria-pressed="false"><span class="theme-moon" aria-hidden="true">☾</span><span class="theme-sun" aria-hidden="true">☀</span></button></div><nav class="nav nav-desktop" aria-label="主导航">${navigation}</nav><details class="mobile-menu"><summary aria-label="导航菜单"><span aria-hidden="true">☰</span></summary><nav class="nav nav-mobile" aria-label="主导航">${navigation}</nav></details></header><main>${body}</main><footer><span>© ${new Date().getUTCFullYear()} ${name}</span><span><a href="/admin">管理</a></span></footer></div></body></html>`;
 }
 async function publicPosts(env) { return (await env.DB.prepare("SELECT slug,title,excerpt,category,tags,published_at FROM posts WHERE status = 'published' ORDER BY published_at DESC, id DESC").all()).results; }
 const mediaNotFound = () => new Response('Not found', {status:404,headers:{'Cache-Control':'no-store'}});
@@ -85,6 +93,7 @@ export default { async fetch(request, env) {
       return response(layout(env, adminPage(), '文章管理'));
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', {status:405});
+    if (path === '/favicon.svg') return new Response(request.method === 'HEAD' ? null : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#2bbc8a"/><path d="M19 16h26v32H19z" fill="#fff"/><path d="M25 25h14M25 32h14M25 39h10" stroke="#2bbc8a" stroke-width="3" stroke-linecap="round"/></svg>', {headers:{'Content-Type':'image/svg+xml; charset=utf-8','Cache-Control':'public, max-age=86400','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; sandbox"}});
     if (path.startsWith('/media/')) {
       return await media(request, env, path.slice(7), url);
     }
@@ -108,8 +117,13 @@ export default { async fetch(request, env) {
     }
     if (path === '/about') return response(layout(env,'<h1>关于</h1><div class="content"><p>你好，欢迎来到我的博客。</p><p>这里记录生活与思考。</p></div>','关于'));
     if (!['/','/archive','/topics','/search'].includes(path) && !path.startsWith('/category/') && !path.startsWith('/tag/')) return response(layout(env,'<h1>页面不存在</h1>'),404);
+    if (path === '/search') {
+      const q = (url.searchParams.get('q') || '').trim().slice(0,100), lower = q.toLocaleLowerCase();
+      const matches = q ? (await env.DB.prepare("SELECT slug,title,excerpt,category,tags,published_at,content FROM posts WHERE status = 'published' ORDER BY published_at DESC, id DESC").all()).results.filter(p=>[p.title,p.content,p.excerpt,p.category,p.tags].some(s=>s.toLocaleLowerCase().includes(lower))) : [];
+      return response(layout(env,`<h1>搜索</h1><form action="/search"><label class="sr" for="q">搜索文章</label><div class="row"><input id="q" name="q" value="${e(q)}" placeholder="搜索文章"><button style="flex:0">搜索</button></div></form><div class="results">${q ? listing(matches) : '<p class="muted">输入关键词搜索文章。</p>'}</div>`,'搜索'));
+    }
     const posts = await publicPosts(env);
-    if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><h2 class="home-posts-title"><a href="/archive">近期发布</a></h2>${listing(posts.slice(0,15), true)}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
+    if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><form class="quick-search" action="/search" role="search"><label class="sr" for="home-search">搜索文章</label><input id="home-search" type="search" name="q" maxlength="100" placeholder="搜索文章…"><button type="submit">搜索</button></form><h2 class="home-posts-title"><a href="/archive">近期发布</a></h2>${listing(posts.slice(0,15), true)}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
     if (path === '/archive') return response(layout(env,`<h1>归档</h1>${archiveListing(posts)}`,'归档'));
     if (path === '/topics') {
       const categories = new Map(), tags = new Map();
@@ -125,11 +139,6 @@ export default { async fetch(request, env) {
       const isTag = path.startsWith('/tag/'), name = decodeURIComponent(path.slice(isTag ? 5 : 10));
       const selected = posts.filter(p => isTag ? JSON.parse(p.tags || '[]').includes(name) : p.category === name);
       return response(layout(env,`<h1>${isTag ? '标签' : '分类'}：${e(name)}</h1>${listing(selected)}`,name));
-    }
-    if (path === '/search') {
-      const q = (url.searchParams.get('q') || '').trim().slice(0,100), lower = q.toLocaleLowerCase();
-      const matches = q ? (await env.DB.prepare("SELECT slug,title,excerpt,category,tags,published_at,content FROM posts WHERE status = 'published' ORDER BY published_at DESC, id DESC").all()).results.filter(p=>[p.title,p.content,p.excerpt,p.category,p.tags].some(s=>s.toLocaleLowerCase().includes(lower))) : [];
-      return response(layout(env,`<h1>搜索</h1><form action="/search"><label class="sr" for="q">搜索文章</label><div class="row"><input id="q" name="q" value="${e(q)}" placeholder="搜索文章"><button style="flex:0">搜索</button></div></form><div class="results">${q ? listing(matches) : '<p class="muted">输入关键词搜索文章。</p>'}</div>`,'搜索'));
     }
     return response(layout(env,'<h1>页面不存在</h1>'),404);
   } catch (error) { console.error('Request failed', error); if (path.startsWith('/media/')) return new Response('Service unavailable',{status:500,headers:{'Cache-Control':'no-store'}}); return response(layout(env,'<h1>暂时无法加载</h1><p>请稍后重试。</p>'),500); }
