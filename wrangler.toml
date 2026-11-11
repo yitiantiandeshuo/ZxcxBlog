@@ -18,7 +18,5 @@ bucket_name = "zxcx-blog-images"
 [vars]
 SITE_TITLE = "我的博客"
 SITE_DESCRIPTION = "记录生活与思考。"
-# Set these values before deployment. All admin routes fail closed until configured.
-ACCESS_TEAM_DOMAIN = ""
-ACCESS_AUD = ""
-ADMIN_EMAIL = ""
+# Configure ACCESS_TEAM_DOMAIN, ACCESS_AUD and ADMIN_EMAIL as Worker secrets.
+# Admin routes fail closed while they are absent.
