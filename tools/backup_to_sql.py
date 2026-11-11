@@ -4,6 +4,9 @@ import json
 import re
 import sys
 
+SETTING_TEXT_FIELDS = ('title','description','avatar_url','icon_url','home_heading','accent_color','github_url','social_url','contact_email','about_content')
+SETTING_INT_FIELDS = ('home_show_excerpt','home_limit','post_show_toc','post_show_published','post_show_updated','post_show_topics','archive_fold','post_share','mobile_nav')
+
 FIELDS = ('id', 'slug', 'title', 'content', 'excerpt', 'category', 'tags', 'status', 'created_at', 'updated_at', 'published_at')
 
 def sql_value(value):
@@ -32,6 +35,19 @@ def convert(data):
             raise ValueError('Missing required value')
         ids.add(post['id']); slugs.add(post['slug'])
         result.append('INSERT INTO posts (' + ','.join(FIELDS) + ') VALUES (' + ','.join(sql_value(post[key]) for key in FIELDS) + ');')
+    settings = data.get('settings')
+    if settings is not None:
+        if not isinstance(settings, dict) or settings.get('id') != 1:
+            raise ValueError('Invalid settings')
+        names = SETTING_TEXT_FIELDS + SETTING_INT_FIELDS
+        if any(name not in settings for name in names):
+            raise ValueError('Missing settings field')
+        for name in SETTING_INT_FIELDS:
+            value = settings[name]
+            if type(value) is not int or not (1 <= value <= 50 if name == 'home_limit' else value in (0, 1)):
+                raise ValueError('Invalid settings value')
+        values = [sql_value(settings[name]) for name in SETTING_TEXT_FIELDS] + [str(settings[name]) for name in SETTING_INT_FIELDS]
+        result.append('INSERT INTO site_settings (id,' + ','.join(names) + ') VALUES (1,' + ','.join(values) + ');')
     return '\n'.join(result) + '\n'
 
 if __name__ == '__main__':

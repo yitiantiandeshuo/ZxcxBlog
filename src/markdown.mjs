@@ -33,10 +33,11 @@ function tableCells(line) {
 export function markdown(input, { headingAnchors = false, onHeading = () => {} } = {}) {
   const usedHeadingIds = new Set();
   const lines = String(input ?? '').replace(/\r\n?/g, '\n').split('\n');
-  let html = '', para = [], code = null;
+  let html = '', para = [], code = null, listBlank = false;
   const lists = [];
   const flush = () => { if (para.length) { html += `<p>${para.map(inline).join('<br>')}</p>`; para = []; } };
-  const closeList = () => { const list = lists.pop(); html += `</li></${list.type}>`; };
+  const closeParagraph = () => { const list=lists[lists.length-1]; if (list?.paragraph) { html += '</p>'; list.paragraph=false; } };
+  const closeList = () => { closeParagraph(); const list = lists.pop(); html += `</li></${list.type}>`; };
   const endList = () => { while (lists.length) closeList(); };
   const itemStart = value => {
     const task = /^\[([ xX])\][ \t]+(.*)$/.exec(value);
@@ -45,6 +46,7 @@ export function markdown(input, { headingAnchors = false, onHeading = () => {} }
     return `<li class="task-list-item"><input type="checkbox" disabled${checked ? ' checked' : ''} aria-label="${checked ? '已完成' : '未完成'}"> ${inline(task[2])}`;
   };
   const addItem = (indent, type, start, value) => {
+    closeParagraph(); listBlank = false;
     while (lists.length && indent < lists[lists.length - 1].indent) closeList();
     const current = lists[lists.length - 1];
     if (!current || (indent > current.indent && lists.length < 32)) {
@@ -62,7 +64,22 @@ export function markdown(input, { headingAnchors = false, onHeading = () => {} }
     const line = lines[index];
     if (/^```/.test(line)) { flush(); endList(); if (code === null) code = []; else { html += `<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`; code = null; } continue; }
     if (code !== null) { code.push(line); continue; }
-    if (!line.trim()) { flush(); endList(); continue; }
+    if (!line.trim()) {
+      flush();
+      if (lists.length && index + 1 < lines.length) {
+        const next = lines[index + 1], marker = /^([ \t]*)(?:[-*+]|\d{1,9}[.)])[ \t]+/.exec(next), continuation = /^([ \t]+)\S/.exec(next);
+        const currentIndent = lists[lists.length-1].indent;
+        if ((marker && marker[1].replace(/\t/g, '    ').length >= lists[0].indent) || (continuation && continuation[1].replace(/\t/g, '    ').length >= currentIndent + 2)) { closeParagraph(); listBlank=true; continue; }
+      }
+      endList(); listBlank=false; continue;
+    }
+    const continuation = lists.length && /^([ \t]+)(\S.*)$/.exec(line);
+    if (continuation && continuation[1].replace(/\t/g, '    ').length >= lists[lists.length-1].indent + 2 && !/^(?:[-*+]|\d{1,9}[.)])[ \t]+/.test(continuation[2])) {
+      const current = lists[lists.length-1];
+      if (listBlank) { html += '<p>'+inline(continuation[2]); current.paragraph=true; }
+      else html += '<br>'+inline(continuation[2]);
+      listBlank=false; continue;
+    }
     if (/^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line)) { flush(); endList(); html += '<hr>'; continue; }
     const headers = tableCells(line), separators = index + 1 < lines.length ? tableCells(lines[index + 1]) : null;
     if (headers && separators && headers.length === separators.length && separators.every(cell => /^:?-{3,}:?$/.test(cell))) {

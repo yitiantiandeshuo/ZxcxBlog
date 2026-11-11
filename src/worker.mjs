@@ -57,7 +57,7 @@ function mediaResponse(req, source) {
 async function media(request, env, key, url) {
   if (!/^[a-f0-9-]{36}\.(png|jpg|webp|gif)$/.test(key)) return mediaNotFound();
   const site = await readSettings(env);
-  const isSiteImage = site && (site.avatar_url === '/media/'+key || site.icon_url === '/media/'+key);
+  const isSiteImage = site && (site.avatar_url === '/media/'+key || site.icon_url === '/media/'+key || (site.about_content && site.about_content.includes('/media/'+key) && markdown(site.about_content).includes(`src="/media/${key}"`)));
   if (!isSiteImage) {
     const candidates = (await env.DB.prepare("SELECT content FROM posts WHERE status = 'published' AND instr(content, ?) > 0").bind('/media/'+key).all()).results;
     if (!candidates.some(post => markdown(post.content).includes(`src="/media/${key}"`))) return mediaNotFound();
@@ -126,7 +126,7 @@ export default { async fetch(request, env) {
       const share = env.POST_SHARE === 1 ? `<div class="post-share"><button type="button" id="shareArticle" class="secondary">分享文章</button><span id="shareStatus" role="status"></span><input id="shareFallback" aria-label="文章分享链接" readonly hidden></div><script>${shareScript}</script>` : '';
       return response(layout(env,`<article class="post"><div class="post-heading"><h1>${e(p.title)}</h1>${env.POST_SHOW_PUBLISHED !== 0 || updated ? `<p class="meta">${env.POST_SHOW_PUBLISHED !== 0 ? `<time datetime="${e(p.published_at || '')}">${e((p.published_at || '').slice(0,10))}</time>` : ''}${updated ? (env.POST_SHOW_PUBLISHED !== 0 ? updated : updated.replace(/^ · /, '')) : ''}</p>` : ''}${env.POST_SHOW_TOPICS !== 0 ? tagLinks(p) : ''}</div><div class="content post-content">${toc}${content}</div>${sideToc}${neighbors}${share}<nav class="post-end-nav" aria-label="文章导航"><a href="/">← 返回首页</a><a href="#">返回顶部 ↑</a></nav></article>`,p.title));
     }
-    if (path === '/about') return response(layout(env,'<h1>关于</h1><div class="content"><p>你好，欢迎来到我的博客。</p><p>这里记录生活与思考。</p></div>','关于'));
+    if (path === '/about') return response(layout(env,`<h1>关于</h1><div class="content post-content">${markdown(env.ABOUT_CONTENT ?? '你好，欢迎来到我的博客。\n\n这里记录生活与思考。')}</div>`,'关于'));
     if (!['/','/archive','/topics','/search'].includes(path) && !path.startsWith('/category/') && !path.startsWith('/tag/')) return response(layout(env,'<h1>页面不存在</h1>'),404);
     if (path === '/search') {
       const q = (url.searchParams.get('q') || '').trim().slice(0,100), lower = q.toLocaleLowerCase();

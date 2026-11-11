@@ -41,7 +41,7 @@ test('public pages escape user content and never load drafts',async()=>{
 test('D1/R2 workflow: drafts, media visibility, publishing and stale edits', async()=>{
   const {DatabaseSync}=await import('node:sqlite');
   const {readFileSync}=await import('node:fs');
-  const db=new DatabaseSync(':memory:'); db.exec(readFileSync(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));
+  const db=new DatabaseSync(':memory:'); for(const f of ['0001_initial.sql','0002_site_settings.sql','0003_home_settings.sql','0004_display_settings.sql','0005_theme_navigation.sql','0006_about_page.sql']) db.exec(readFileSync(new URL('../migrations/'+f,import.meta.url),'utf8'));
   const D1={prepare(sql){const stmt=db.prepare(sql);let args=[];return {bind(...x){args=x;return this},async first(){return stmt.get(...args)||null},async all(){return {results:stmt.all(...args)}},async run(){const r=stmt.run(...args);return {meta:{changes:Number(r.changes)}}}}}};
   const storage=new Map(); const BUCKET={async put(key,data,opts){storage.set(key,{data,opts})},async get(key){const x=storage.get(key);return x?{body:x.data,writeHttpMetadata(h){h.set('content-type',x.opts.httpMetadata.contentType)}}:null},async list(){return {objects:[...storage.keys()].map(key=>({key})),truncated:false}}};
   const E={...env,DB:D1,BUCKET}, headers={Origin:'https://blog.test','Content-Type':'application/json'};
@@ -194,4 +194,10 @@ test('markdown supports tasks, strikethrough and separators without parsing code
   assert.match(html,/<pre><code>- \[x\] 字面\n---<\/code><\/pre>/);
   assert.match(markdown('`~~literal~~`'),/<code>~~literal~~<\/code>/);
   assert.doesNotMatch(markdown('- [x] <script>'),/<script>/);
+});
+
+test('list items retain indented continuation lines and separate paragraphs',()=>{
+  assert.equal(markdown('- 第一行\n  续行\n\n  第二段\n  继续\n\n- 第二项\n\n正文'),'<ul><li>第一行<br>续行<p>第二段<br>继续</p></li><li>第二项</li></ul><p>正文</p>');
+  assert.equal(markdown('1. 外层\n\n  - 子项\n\n2. 下一项'),'<ol><li>外层<ul><li>子项</li></ul></li><li>下一项</li></ol>');
+  assert.match(markdown('- 安全\n\n  <script>alert(1)</script>'),/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
 });
