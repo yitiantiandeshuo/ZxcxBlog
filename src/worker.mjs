@@ -3,6 +3,7 @@ import { themeScript } from './theme.mjs';
 import { tocScript } from './toc.mjs';
 import { escapeHtml as e, markdown } from './markdown.mjs';
 import { adminPage, adminApi, authorize } from './admin.mjs';
+import { readSettings, settingsEnv, settingsPage } from './settings.mjs';
 
 const response = (html, status = 200) => new Response(html, { status, headers: {'Content-Type':'text/html; charset=utf-8','X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','Content-Security-Policy':"default-src 'self'; img-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"} });
 const link = (path, label) => `<a href="${path}">${e(label)}</a>`;
@@ -52,8 +53,12 @@ function mediaResponse(req, source) {
 }
 async function media(request, env, key, url) {
   if (!/^[a-f0-9-]{36}\.(png|jpg|webp|gif)$/.test(key)) return mediaNotFound();
-  const candidates = (await env.DB.prepare("SELECT content FROM posts WHERE status = 'published' AND instr(content, ?) > 0").bind('/media/'+key).all()).results;
-  if (!candidates.some(post => markdown(post.content).includes(`src="/media/${key}"`))) return mediaNotFound();
+  const site = await readSettings(env);
+  const isSiteImage = site && (site.avatar_url === '/media/'+key || site.icon_url === '/media/'+key);
+  if (!isSiteImage) {
+    const candidates = (await env.DB.prepare("SELECT content FROM posts WHERE status = 'published' AND instr(content, ?) > 0").bind('/media/'+key).all()).results;
+    if (!candidates.some(post => markdown(post.content).includes(`src="/media/${key}"`))) return mediaNotFound();
+  }
 
   // The cache only holds objects, never the decision to make them public.
   const cacheUrl = new URL(url.origin); cacheUrl.pathname = '/__blog_media_cache_v1/' + key;
@@ -90,13 +95,15 @@ export default { async fetch(request, env) {
       const user = await authorize(request, env);
       if (!user) return response(layout(env, '<h1>无法访问</h1><p>请通过 Cloudflare Access 登录管理员账户。</p>'), 403);
       if (path.startsWith('/api/admin/')) return await adminApi(request, env, url);
-      return response(layout(env, adminPage(), '文章管理'));
+      env = await settingsEnv(env);
+      return response(layout(env, path === '/admin/settings' ? settingsPage() : adminPage(), path === '/admin/settings' ? '站点设置' : '文章管理'));
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', {status:405});
     if (path === '/favicon.svg') return new Response(request.method === 'HEAD' ? null : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#2bbc8a"/><path d="M19 16h26v32H19z" fill="#fff"/><path d="M25 25h14M25 32h14M25 39h10" stroke="#2bbc8a" stroke-width="3" stroke-linecap="round"/></svg>', {headers:{'Content-Type':'image/svg+xml; charset=utf-8','Cache-Control':'public, max-age=86400','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; sandbox"}});
     if (path.startsWith('/media/')) {
       return await media(request, env, path.slice(7), url);
     }
+    env = await settingsEnv(env);
     if (path.startsWith('/post/')) {
       const slug = decodeURIComponent(path.slice(6));
       const p = await env.DB.prepare("SELECT * FROM posts WHERE slug = ? AND status = 'published'").bind(slug).first();

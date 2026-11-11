@@ -34,7 +34,7 @@ test('admin writes reject cross-origin and missing Origin',async()=>{
 });
 test('public pages escape user content and never load drafts',async()=>{
   const seen=[];const db={prepare(sql){seen.push(sql);return {bind(){return this},async all(){return {results:[{title:'<img src=x>',slug:'hello',excerpt:'',category:'',tags:'[]',published_at:'2026-01-01'}]}},async first(){return null}}}};
-  const r=await worker.fetch(new Request('https://blog.test/'),{...env,DB:db});const body=await r.text();assert.equal(r.status,200);assert.match(body,/&lt;img src=x&gt;/);assert.ok(seen.every(sql=>sql.includes("status = 'published'")));
+  const r=await worker.fetch(new Request('https://blog.test/'),{...env,DB:db});const body=await r.text();assert.equal(r.status,200);assert.match(body,/&lt;img src=x&gt;/);assert.ok(seen.filter(sql=>sql.includes("FROM posts")).every(sql=>sql.includes("status = 'published'")));
   assert.equal((await worker.fetch(new Request('https://blog.test/post/draft'),{...env,DB:db})).status,404);
 });
 
@@ -163,7 +163,7 @@ test('site identity accepts safe image URLs and homepage offers search', async()
 test('search only queries published content once and escapes the query', async()=>{
   const calls=[];const DB={prepare(sql){calls.push(sql);return {async all(){return {results:[{title:'Find',slug:'find',content:'need <x>',excerpt:'',category:'',tags:'[]',published_at:'2026-01-01'}]}}}}};
   const page=await (await worker.fetch(new Request('https://blog.test/search?q=%3Cx%3E'),{...env,DB})).text();
-  assert.equal(calls.length,1);assert.match(calls[0],/status = 'published'/);
+  const postQueries=calls.filter(sql=>sql.includes('FROM posts'));assert.equal(postQueries.length,1);assert.match(postQueries[0],/status = 'published'/);
   assert.match(page,/value="&lt;x&gt;"/);assert.match(page,/\/post\/find/);
 });
 
