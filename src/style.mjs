@@ -57,4 +57,9 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 .post-content h1:hover .heading-anchor,.post-content h2:hover .heading-anchor,.post-content h3:hover .heading-anchor,.post-content h4:hover .heading-anchor,.post-content h5:hover .heading-anchor,.post-content h6:hover .heading-anchor,.heading-anchor:focus-visible{opacity:1}
 @media(hover:none){.heading-anchor{opacity:1}}
 
+/* Compact article navigation and directory adapted from Higan Haozi. */
+.post-toc{margin:0 0 2rem;padding:.75rem 1rem;border-left:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 5%,var(--bg));font-size:.9rem}
+.post-toc summary{cursor:pointer;color:var(--accent);font-weight:600}.post-toc ol{list-style:none;padding:0;margin:.6rem 0 0}.post-toc li{margin:.2rem 0;overflow-wrap:anywhere}.post-toc .toc-level-2{padding-left:1em}.post-toc .toc-level-3{padding-left:2em}.post-toc .toc-level-4{padding-left:3em}.post-toc a{text-decoration:none;border:0}.post-toc a:hover{text-decoration:underline}
+.post-end-nav{display:flex;justify-content:space-between;gap:1rem;margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);font-size:.875rem}.post-end-nav a{color:var(--accent);border:0}.post-end-nav a:hover{text-decoration:underline}
+
 `;

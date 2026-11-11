@@ -91,7 +91,10 @@ export default { async fetch(request, env) {
       const slug = decodeURIComponent(path.slice(6));
       const p = await env.DB.prepare("SELECT * FROM posts WHERE slug = ? AND status = 'published'").bind(slug).first();
       if (!p) return response(layout(env,'<h1>文章不存在</h1>'),404);
-      return response(layout(env,`<article class="post"><div class="post-heading"><h1>${e(p.title)}</h1><p class="meta"><time datetime="${e(p.published_at || '')}">${e((p.published_at || '').slice(0,10))}</time></p>${tagLinks(p)}</div><div class="content post-content">${markdown(p.content, {headingAnchors:true})}</div></article>`,p.title));
+      const headings = [];
+      const content = markdown(p.content, {headingAnchors:true, onHeading: heading => { if (heading.level <= 4) headings.push(heading); }});
+      const toc = headings.length > 1 ? `<details class="post-toc"><summary>文章目录</summary><nav aria-label="文章目录"><ol>${headings.map(h => `<li class="toc-level-${h.level}"><a href="#${encodeURIComponent(h.id)}">${e(h.label)}</a></li>`).join('')}</ol></nav></details>` : '';
+      return response(layout(env,`<article class="post"><div class="post-heading"><h1>${e(p.title)}</h1><p class="meta"><time datetime="${e(p.published_at || '')}">${e((p.published_at || '').slice(0,10))}</time></p>${tagLinks(p)}</div><div class="content post-content">${toc}${content}</div><nav class="post-end-nav" aria-label="文章导航"><a href="/">← 返回首页</a><a href="#">返回顶部 ↑</a></nav></article>`,p.title));
     }
     if (path === '/about') return response(layout(env,'<h1>关于</h1><div class="content"><p>你好，欢迎来到我的博客。</p><p>这里记录生活与思考。</p></div>','关于'));
     if (!['/','/archive','/topics','/search'].includes(path) && !path.startsWith('/category/') && !path.startsWith('/tag/')) return response(layout(env,'<h1>页面不存在</h1>'),404);
@@ -99,9 +102,14 @@ export default { async fetch(request, env) {
     if (path === '/') return response(layout(env,`<section class="intro"><p>${e(env.SITE_DESCRIPTION || '记录生活与思考。')}</p>${link('/about','了解更多 →')}</section><h2 class="home-posts-title"><a href="/archive">近期发布</a></h2>${listing(posts.slice(0,15))}${posts.length > 15 ? '<p><a href="/archive">查看全部文章 →</a></p>' : ''}`));
     if (path === '/archive') return response(layout(env,`<h1>归档</h1>${archiveListing(posts)}`,'归档'));
     if (path === '/topics') {
-      const categories = [...new Set(posts.map(p=>p.category).filter(Boolean))].sort();
-      const tags = [...new Set(posts.flatMap(p=>JSON.parse(p.tags || '[]')))].sort();
-      return response(layout(env,`<h1>分类与标签</h1><h2>分类</h2><div class="chips">${categories.map(t=>link('/category/'+encodeURIComponent(t),t)).join(' ') || '暂无分类'}</div><h2>标签</h2><div class="chips">${tags.map(t=>link('/tag/'+encodeURIComponent(t),'#'+t)).join(' ') || '暂无标签'}</div>`,'分类与标签'));
+      const categories = new Map(), tags = new Map();
+      for (const post of posts) {
+        if (post.category) categories.set(post.category, (categories.get(post.category) || 0) + 1);
+        for (const tag of new Set(JSON.parse(post.tags || '[]'))) tags.set(tag, (tags.get(tag) || 0) + 1);
+      }
+      const categoryLinks = [...categories].sort(([a],[b])=>a.localeCompare(b)).map(([name,count])=>link('/category/'+encodeURIComponent(name), `${name} (${count})`)).join(' ');
+      const tagLinks = [...tags].sort(([a],[b])=>a.localeCompare(b)).map(([name,count])=>link('/tag/'+encodeURIComponent(name), `#${name} (${count})`)).join(' ');
+      return response(layout(env,`<h1>分类与标签</h1><h2>分类</h2><div class="chips">${categoryLinks || '暂无分类'}</div><h2>标签</h2><div class="chips">${tagLinks || '暂无标签'}</div>`,'分类与标签'));
     }
     if (path.startsWith('/category/') || path.startsWith('/tag/')) {
       const isTag = path.startsWith('/tag/'), name = decodeURIComponent(path.slice(isTag ? 5 : 10));

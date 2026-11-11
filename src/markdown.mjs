@@ -16,7 +16,7 @@ function inline(value) {
   s = escapeHtml(s).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
   return s.replace(/\u0000(\d+)\u0000/g, (_, n) => tokens[Number(n)]);
 }
-export function markdown(input, { headingAnchors = false } = {}) {
+export function markdown(input, { headingAnchors = false, onHeading = () => {} } = {}) {
   const usedHeadingIds = new Set();
   const lines = String(input ?? '').replace(/\r\n?/g, '\n').split('\n');
   let html = '', para = [], list = false, code = null;
@@ -36,6 +36,7 @@ export function markdown(input, { headingAnchors = false } = {}) {
       let id = base, suffix = 1;
       while (usedHeadingIds.has(id)) id = `${base}-${suffix++}`;
       usedHeadingIds.add(id);
+      onHeading({level:n, id, label});
       html += `<h${n} id="${escapeHtml(id)}">${inline(heading[2])}<a class="heading-anchor" href="#${encodeURIComponent(id)}" aria-label="${escapeHtml(`链接至：${label}`)}">#</a></h${n}>`;
       continue;
     }

@@ -96,3 +96,25 @@ test('article heading permalinks support unicode and unique duplicate IDs', () =
   assert.doesNotMatch(html, /<script>/);
   assert.equal(markdown('# 标题'), '<h1>标题</h1>');
 });
+
+test('article directory links to unique headings and article navigation stays available', async()=>{
+  const post={title:'文章',slug:'article',tags:'[]',category:'',published_at:'2026-01-01',content:'## 中文标题\n### 重复\n### 重复\n\n```\n## 代码里的标题\n```'};
+  const DB={prepare(){return {bind(){return this},async first(){return post}}}};
+  const html=await (await worker.fetch(new Request('https://blog.test/post/article'),{...env,DB})).text();
+  assert.match(html,/<summary>文章目录<\/summary>/);
+  assert.match(html,/<a href="#%E4%B8%AD%E6%96%87%E6%A0%87%E9%A2%98">中文标题<\/a>/);
+  assert.match(html,/<a href="#%E9%87%8D%E5%A4%8D-1">重复<\/a>/);
+  assert.doesNotMatch(html,/<a href="#.*">代码里的标题<\/a>/);
+  assert.match(html,/返回首页/);assert.match(html,/返回顶部/);
+  post.content='无标题';
+  const noToc=await (await worker.fetch(new Request('https://blog.test/post/article'),{...env,DB})).text();
+  assert.doesNotMatch(noToc,/<summary>文章目录<\/summary>/);
+});
+
+test('topic counts include published posts once per tag', async()=>{
+  const posts=[{category:'笔记',tags:'["生活","生活"]'},{category:'笔记',tags:'["生活","代码"]'},{category:'',tags:'[]'}];
+  let query='';const DB={prepare(sql){query=sql;return {async all(){return {results:posts}}}}};
+  const html=await (await worker.fetch(new Request('https://blog.test/topics'),{...env,DB})).text();
+  assert.match(query,/status = 'published'/);
+  assert.match(html,/笔记 \(2\)/);assert.match(html,/#生活 \(2\)/);assert.match(html,/#代码 \(1\)/);
+});
