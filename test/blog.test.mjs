@@ -98,12 +98,13 @@ test('article heading permalinks support unicode and unique duplicate IDs', () =
 });
 
 test('article directory links to unique headings and article navigation stays available', async()=>{
-  const post={title:'文章',slug:'article',tags:'[]',category:'',published_at:'2026-01-01',content:'## 中文标题\n### 重复\n### 重复\n\n```\n## 代码里的标题\n```'};
+  const post={title:'文章',slug:'article',tags:'[]',category:'',published_at:'2026-01-01',content:'## 中文标题\n### 重复\n### 重复\n##### 深层标题\n\n```\n## 代码里的标题\n```'};
   const DB={prepare(){return {bind(){return this},async first(){return post}}}};
   const html=await (await worker.fetch(new Request('https://blog.test/post/article'),{...env,DB})).text();
   assert.match(html,/<summary>文章目录<\/summary>/);
   assert.match(html,/<a href="#%E4%B8%AD%E6%96%87%E6%A0%87%E9%A2%98">中文标题<\/a>/);
   assert.match(html,/<a href="#%E9%87%8D%E5%A4%8D-1">重复<\/a>/);
+  assert.match(html, /<a href="#%E6%B7%B1%E5%B1%82%E6%A0%87%E9%A2%98">深层标题<\/a>/);
   assert.doesNotMatch(html,/<a href="#.*">代码里的标题<\/a>/);
   assert.match(html,/返回首页/);assert.match(html,/返回顶部/);
   post.content='无标题';

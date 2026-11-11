@@ -63,7 +63,7 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 .post-end-nav{display:flex;justify-content:space-between;gap:1rem;margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);font-size:.875rem}.post-end-nav a{color:var(--accent);border:0}.post-end-nav a:hover{text-decoration:underline}
 
 /* On wide screens the directory stays visible beside the article. */
-.post-toc-side{display:none}.post-toc-nav .toc-indent-1{padding-left:1em}.post-toc-nav .toc-indent-2{padding-left:2em}.post-toc-nav .toc-indent-3{padding-left:3em}
+.post-toc-side{display:none}.post-toc-nav .toc-indent-1{padding-left:1em}.post-toc-nav .toc-indent-2{padding-left:2em}.post-toc-nav .toc-indent-3{padding-left:3em}.post-toc-nav .toc-indent-4{padding-left:4em}.post-toc-nav .toc-indent-5{padding-left:5em}
 .post-toc-nav a[aria-current="location"]{color:var(--accent);font-weight:700;text-decoration:underline;text-underline-offset:.2em}
 @media(min-width:1280px){.post-toc{display:none}.post-toc-side{display:block;position:fixed;top:6rem;left:calc(50% + 25rem);width:min(13rem,calc(50vw - 26rem));max-height:calc(100vh - 8rem);overflow:auto;font-size:.85rem;line-height:1.6;color:var(--muted)}.post-toc-side strong{color:var(--ink)}.post-toc-side ol{list-style:none;padding:0;margin:.75rem 0}.post-toc-side li{margin:.4rem 0;overflow-wrap:anywhere}.post-toc-side a{border:0}.post-toc-side a:hover{color:var(--accent)}}
 

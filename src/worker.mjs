@@ -108,7 +108,7 @@ export default { async fetch(request, env) {
       const neighbors = newer || older ? `<nav class="post-neighbors" aria-label="相邻文章">${newer ? `<div><span>上一篇</span>${link('/post/'+encodeURIComponent(newer.slug),newer.title)}</div>` : '<div></div>'}${older ? `<div><span>下一篇</span>${link('/post/'+encodeURIComponent(older.slug),older.title)}</div>` : ''}</nav>` : '';
       const updated = p.updated_at && p.published_at && p.updated_at.slice(0,10) > p.published_at.slice(0,10) ? ` · 更新于 <time datetime="${e(p.updated_at)}">${e(p.updated_at.slice(0,10))}</time>` : '';
       const headings = [];
-      const content = markdown(p.content, {headingAnchors:true, onHeading: heading => { if (heading.level <= 4) headings.push(heading); }});
+      const content = markdown(p.content, {headingAnchors:true, onHeading: heading => headings.push(heading)});
       const minLevel = Math.min(...headings.map(h=>h.level));
       const tocList = `<ol>${headings.map(h => `<li class="toc-indent-${h.level - minLevel}"><a href="#${encodeURIComponent(h.id)}">${e(h.label)}</a></li>`).join('')}</ol>`;
       const toc = headings.length > 1 ? `<details class="post-toc"><summary>文章目录</summary><nav class="post-toc-nav" aria-label="文章目录">${tocList}</nav></details>` : '';
