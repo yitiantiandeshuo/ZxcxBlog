@@ -1,22 +1,22 @@
-name = "zxcx-blog"
+# Default configuration is deliberately incomplete. See README.md.
+# Copy to wrangler.local.toml and replace the example resource names and ID.
+name = "REPLACE_WITH_YOUR_WORKER_NAME"
 main = "src/worker.mjs"
 compatibility_date = "2026-11-01"
 workers_dev = true
 preview_urls = false
 
-# Create these resources in your own Cloudflare account and fill in the returned ID.
 [[d1_databases]]
 binding = "DB"
-database_name = "zxcx-blog"
-database_id = "7ba9ba4a-8fd0-4a2b-8395-ca788d4011a4"
+database_name = "my-blog-db"
+database_id = "REPLACE-WITH-YOUR-D1-DATABASE-ID"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "zxcx-blog-images"
+bucket_name = "my-blog-images"
 
 [vars]
 SITE_TITLE = "我的博客"
 SITE_DESCRIPTION = "记录生活与思考。"
 # Configure ACCESS_TEAM_DOMAIN, ACCESS_AUD and ADMIN_EMAIL as Worker secrets.
-# Admin routes fail closed while they are absent.

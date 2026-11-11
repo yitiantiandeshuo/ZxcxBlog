@@ -78,7 +78,7 @@ binding = "BUCKET" # 保持不变
 bucket_name = "my-blog-images"
 ```
 
-**必须将模板中的 `database_id` 替换为自己的 D1 ID。**仓库中的 `wrangler.toml` 服务于项目维护者的现有站点，不应作为你的部署配置。上面的片段只展示需要核对的字段，保留文件中的其他配置。`workers_dev = true` 用于初始访问，`preview_urls = false` 禁用额外预览 URL。`SITE_TITLE` 和 `SITE_DESCRIPTION` 可先修改，之后可以在后台“站点设置”调整；已经保存的后台设置会覆盖这两个默认值。
+**必须将模板中的 `database_id` 替换为自己的 D1 ID。**仓库中的 `wrangler.toml` 是包含占位资源的示例配置，不应作为你的部署配置。上面的片段只展示需要核对的字段，保留文件中的其他配置。`workers_dev = true` 用于初始访问，`preview_urls = false` 禁用额外预览 URL。`SITE_TITLE` 和 `SITE_DESCRIPTION` 可先修改，之后可以在后台“站点设置”调整；已经保存的后台设置会覆盖这两个默认值。
 
 如果将自己的配置推送到公开仓库，请检查不包含密码、令牌、Access 邮箱或其他不希望公开的信息。数据库 ID、资源名称和账户环境也应按个人情况处理。
 
