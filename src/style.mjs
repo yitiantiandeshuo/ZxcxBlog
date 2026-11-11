@@ -10,6 +10,7 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 .nav a{color:var(--accent);padding:0 .9375rem;border-right:1px dotted var(--accent)}
 .nav a:first-child{padding-left:0}.nav a:last-child{border-right:0}
 .nav a:hover{color:var(--accent);text-decoration:underline;text-underline-offset:.3em}
+.mobile-menu{display:none}
 .intro{margin:0 0 3rem}.intro p{margin:0 0 1rem}
 .home-posts-title{font-size:1.35rem;letter-spacing:.01em;margin:3rem 0 1rem;color:var(--accent)}
 .home-posts-title a{border:0;color:inherit}
@@ -17,6 +18,7 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 .post-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:.3125rem 1rem}
 .post-list li{display:contents}.post-list time{min-width:0;font-size:.875rem;color:#777}.post-list a{min-width:0;overflow-wrap:anywhere}
 @media(max-width:639px){.wrap{padding:0 1rem}header{padding-top:3rem;margin-bottom:2rem}.nav{gap:.6rem 0;line-height:1.5}.nav a{padding:0 .65rem}.post-list{display:block}.post-list li{display:block;margin:0 0 1rem;padding:0}.post-list time{display:block}}
+@media(max-width:639px){header{position:relative}.logo{max-width:calc(100% - 3.5rem)}.nav-desktop{display:none}.mobile-menu{display:block}.mobile-menu summary{position:absolute;top:2.65rem;right:0;display:flex;align-items:center;justify-content:center;width:2.75rem;height:2.75rem;list-style:none;cursor:pointer;color:var(--accent);font-size:1.35rem}.mobile-menu summary::-webkit-details-marker{display:none}.mobile-menu summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.nav.nav-mobile{display:flex;flex-direction:column;align-items:flex-start;gap:.6rem;margin-top:1rem;font-size:1rem}.nav.nav-mobile a{border:0;padding:0}}
 /* Article typography adapted from Higan Haozi; see licenses/higan-haozi-MIT.txt. */
 .post-heading{margin-bottom:2rem}
 .post-heading h1{font-size:1.5em;line-height:1.3;letter-spacing:.01em;overflow-wrap:anywhere;margin:0 0 .5rem}
