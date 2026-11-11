@@ -8,7 +8,7 @@ preview_urls = false
 [[d1_databases]]
 binding = "DB"
 database_name = "zxcx-blog"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "7ba9ba4a-8fd0-4a2b-8395-ca788d4011a4"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
