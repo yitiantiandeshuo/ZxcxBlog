@@ -2,7 +2,7 @@
 
 一个运行在自己 Cloudflare 账户里的轻量个人博客。公开站点专注阅读，受保护的后台提供 Markdown 写作、图片上传和站点设置；不需要维护独立服务器或部署 Halo。
 
-公开页面示例：[查看博客](https://zxcx-blog.zxcx-blog.workers.dev/)（实际内容和显示设置可能变化）。
+公开页面示例：[查看博客](https://yitian.de/)（实际内容和显示设置可能变化）。
 
 布局和部分样式参考并改编自 [Higan Haozi](https://howiehz.top/halo-theme-higan-haozi/)。这个项目是独立实现，并不包含 Halo CMS，也不要求安装 Halo。
 
@@ -126,6 +126,20 @@ npx --no-install wrangler secret put ADMIN_EMAIL --config wrangler.local.toml
 - 导出备份，并检查 Workers、D1、R2 的使用量与 R2 公开访问设置。
 
 出现 403 时，检查两个路径是否归属同一个 Access 应用、应用 Audience、团队域名及邮箱是否完全一致；也检查是否使用了未受保护的备用域名。更改 Access 或 secrets 后重新登录再检查。
+
+## 使用自己的域名
+
+确认该域名是你 Cloudflare 账户下的活动 zone，并先检查根域名及其他 DNS 记录是否正在供现有服务使用。只把想交给博客的主机名连接到 Worker；根域名和各个子域名是不同主机名。Cloudflare 的 [Custom Domains 文档](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)列出了已有 CNAME 等限制。
+
+在 `wrangler.local.toml` 中添加下列片段，替换为自己的主机名；如不需要 `workers.dev` 地址，将 `workers_dev` 设置为 `false`，再部署：
+
+```toml
+[[routes]]
+pattern = "example.com"
+custom_domain = true
+```
+
+首先在 Access 的同一个应用中，为新域名配置 `/admin*` 和 `/api/admin*`；再部署并验证新域名的公开页面、管理员登录及匿名拒绝。若仍启用旧域名或 `workers.dev`，每个地址的管理路径都必须受保护。停用旧地址后仍应检查所有可访问入口。不要删除其他子域名、邮件或现有服务的 DNS 记录。
 
 ## 日常使用
 
