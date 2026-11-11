@@ -40,4 +40,16 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 .post-content ul,.post-content ol{padding-left:1.5rem}
 @media(max-width:639px){.post-heading{margin-bottom:1.5rem}.post-content pre{margin-left:-.5rem;margin-right:-.5rem}}
 
+/* Optional colour scheme, following Higan Haozi's dark palette. */
+.brand{display:flex;align-items:center;gap:.75rem}.theme-toggle{flex:none;background:transparent;color:var(--accent);padding:.25rem .4rem;font-size:1.2rem;line-height:1;border:0}.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.theme-sun{display:none}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#212326;--ink:#d5d7d8;--muted:#a8aaab;--line:#424548;--accent:#2bbc8a}
+:root[data-theme="dark"] .theme-moon{display:none}:root[data-theme="dark"] .theme-sun{display:inline}
+:root[data-theme="dark"] h1,:root[data-theme="dark"] h2,:root[data-theme="dark"] h3{color:var(--ink)}
+:root[data-theme="dark"] .home-posts-title,:root[data-theme="dark"] .post-content h1{color:var(--accent)}
+:root[data-theme="dark"] .post-list time,:root[data-theme="dark"] .post-heading .meta,:root[data-theme="dark"] .content blockquote{color:var(--muted)}
+:root[data-theme="dark"] .content pre{background:#181818}
+:root[data-theme="dark"] input,:root[data-theme="dark"] textarea,:root[data-theme="dark"] select{background:#1c1c1c;color:var(--ink);border-color:#555}
+:root[data-theme="dark"] button.secondary,:root[data-theme="dark"] .button.secondary{background:#424548;color:var(--ink)}
+@media(max-width:639px){.brand{padding-right:3.5rem}.brand .logo{max-width:none;min-width:0;overflow-wrap:anywhere}}
+
 `;
