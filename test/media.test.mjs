@@ -8,7 +8,7 @@ function fixture() {
   const entries=new Map();
   const cache={async match(req){if(state.failCache)throw Error('unavailable');return entries.get(req.url)?.clone()},async put(req,res){if(state.failCache)throw Error('unavailable');state.puts++;state.keys.push(req.url);entries.set(req.url,res.clone())}};
   const obj=body=>({body,size:state.size,httpEtag:state.etag,writeHttpMetadata(h){h.set('content-type','image/png');h.set('cache-control','public,max-age=999999')}});
-  const env={DB:{prepare(){return {bind(){return this},async all(){state.dbReads++;return {results:state.published?[{content:`![x](${path})`}]:[]}}}}},BUCKET:{async get(){state.gets++;if(state.failR2)throw Error('r2');return state.exists?obj(state.data):null},async head(){state.heads++;if(state.failR2)throw Error('r2');return state.exists?obj(null):null}}};
+  const env={DB:{prepare(){return {bind(){return this},async all(){state.dbReads++;return {results:state.published?[{content:state.content ?? `![x](${path})`}]:[]}}}}},BUCKET:{async get(){state.gets++;if(state.failR2)throw Error('r2');return state.exists?obj(state.data):null},async head(){state.heads++;if(state.failR2)throw Error('r2');return state.exists?obj(null):null}}};
   const fetch=(url=path,options={})=>worker.fetch(new Request('https://blog.example'+url,options),env);
   return {state,cache,fetch,entries};
 }
@@ -59,4 +59,13 @@ test('private preview cannot inherit public cache metadata from R2',async()=>{
  const req=new Request('https://blog.example/api/admin/media/'+key);
  const env={BUCKET:{async get(){return {body:'private',writeHttpMetadata(h){h.set('cache-control','public, max-age=3600');h.set('content-type','image/png')}}}}};
  const r=await adminApi(req,env,new URL(req.url));assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');assert.equal(await r.text(),'private');
+});
+
+
+test('task list images obey published status', async()=>{
+ const f=fixture();f.state.content=`- [x] ![任务图](${path})`;
+ await withCache(f.cache,async()=>{
+  assert.equal((await f.fetch()).status,200);
+  f.state.published=false;assert.equal((await f.fetch()).status,404);
+ });
 });

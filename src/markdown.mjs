@@ -13,7 +13,7 @@ function inline(value) {
     if (!url) return escapeHtml(alt || label);
     return hold(image ? `<img src="${url}" alt="${escapeHtml(alt)}" loading="lazy">` : `<a href="${url}" rel="noopener noreferrer">${escapeHtml(label)}</a>`);
   });
-  s = escapeHtml(s).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  s = escapeHtml(s).replace(/~~([^~\n]+)~~/g, '<del>$1</del>').replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
   return s.replace(/\u0000(\d+)\u0000/g, (_, n) => tokens[Number(n)]);
 }
 // Split table cells without treating escaped pipes or pipes in inline code as separators.
@@ -38,17 +38,23 @@ export function markdown(input, { headingAnchors = false, onHeading = () => {} }
   const flush = () => { if (para.length) { html += `<p>${para.map(inline).join('<br>')}</p>`; para = []; } };
   const closeList = () => { const list = lists.pop(); html += `</li></${list.type}>`; };
   const endList = () => { while (lists.length) closeList(); };
+  const itemStart = value => {
+    const task = /^\[([ xX])\][ \t]+(.*)$/.exec(value);
+    if (!task) return `<li>${inline(value)}`;
+    const checked = task[1].toLowerCase() === 'x';
+    return `<li class="task-list-item"><input type="checkbox" disabled${checked ? ' checked' : ''} aria-label="${checked ? '已完成' : '未完成'}"> ${inline(task[2])}`;
+  };
   const addItem = (indent, type, start, value) => {
     while (lists.length && indent < lists[lists.length - 1].indent) closeList();
     const current = lists[lists.length - 1];
     if (!current || (indent > current.indent && lists.length < 32)) {
-      html += `<${type}${type === 'ol' && start !== 1 ? ` start="${start}"` : ''}><li>${inline(value)}`;
+      html += `<${type}${type === 'ol' && start !== 1 ? ` start="${start}"` : ''}>${itemStart(value)}`;
       lists.push({indent, type});
     } else if (type === current.type) {
-      html += `</li><li>${inline(value)}`;
+      html += `</li>${itemStart(value)}`;
     } else {
       closeList();
-      html += `<${type}${type === 'ol' && start !== 1 ? ` start="${start}"` : ''}><li>${inline(value)}`;
+      html += `<${type}${type === 'ol' && start !== 1 ? ` start="${start}"` : ''}>${itemStart(value)}`;
       lists.push({indent, type});
     }
   };
@@ -57,6 +63,7 @@ export function markdown(input, { headingAnchors = false, onHeading = () => {} }
     if (/^```/.test(line)) { flush(); endList(); if (code === null) code = []; else { html += `<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`; code = null; } continue; }
     if (code !== null) { code.push(line); continue; }
     if (!line.trim()) { flush(); endList(); continue; }
+    if (/^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line)) { flush(); endList(); html += '<hr>'; continue; }
     const headers = tableCells(line), separators = index + 1 < lines.length ? tableCells(lines[index + 1]) : null;
     if (headers && separators && headers.length === separators.length && separators.every(cell => /^:?-{3,}:?$/.test(cell))) {
       flush(); endList();

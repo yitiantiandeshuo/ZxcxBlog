@@ -87,4 +87,7 @@ header{display:block;padding:4rem 0 0;margin:0 auto 3rem}
 
 .settings-checkbox{display:flex;align-items:center;gap:.5rem;margin:1rem 0}.settings-checkbox input{width:auto}
 
+/* Markdown task lists and section separators. */
+.content .task-list-item{list-style:none}.content .task-list-item input[type=checkbox]{display:inline-block;width:auto;margin:0 .25rem 0 -1.25rem;accent-color:var(--accent);vertical-align:middle}.content hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
+
 `;

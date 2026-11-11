@@ -6,14 +6,14 @@ import { themeScript } from '../src/theme.mjs';
 function setup(initial, blocked = false) {
   const attrs = {};
   let click;
-  let ready;
+  const events = {};
   let stored = initial;
   const button = { setAttribute: (key, value) => { attrs[key] = value; }, addEventListener: (_, fn) => { click = fn; } };
-  const document = { documentElement: { dataset: {} }, querySelector: () => button, addEventListener: (_, fn) => { ready = fn; } };
+  const document = { documentElement: { dataset: {} }, querySelector: () => button, addEventListener: (name, fn) => { events[name] = fn; } };
   const localStorage = { getItem: () => { if (blocked) throw Error('blocked'); return stored; }, setItem: (_, value) => { if (blocked) throw Error('blocked'); stored = value; } };
   runInNewContext(themeScript, { document, localStorage });
-  ready();
-  return { document, attrs, click: () => click(), stored: () => stored };
+  events.DOMContentLoaded();
+  return { document, attrs, click: () => click(), key: event => events.keydown(event), stored: () => stored };
 }
 
 test('theme remembers a choice and updates the accessible button', () => {
@@ -32,4 +32,14 @@ test('theme remains usable when browser storage is blocked', () => {
   page.click();
   assert.equal(page.document.documentElement.dataset.theme, 'dark');
   assert.equal(page.attrs['aria-pressed'], 'true');
+});
+
+
+test('theme shortcut works without interfering with text editing', () => {
+  const page = setup(null);
+  let prevented = false;
+  page.key({altKey:true,key:'t',target:{tagName:'BODY'},preventDefault(){prevented=true}});
+  assert.equal(page.document.documentElement.dataset.theme,'dark');assert.equal(prevented,true);
+  page.key({altKey:true,key:'t',target:{tagName:'TEXTAREA'},preventDefault(){throw Error('editing shortcut intercepted')}});
+  assert.equal(page.document.documentElement.dataset.theme,'dark');
 });

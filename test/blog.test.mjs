@@ -183,3 +183,15 @@ test('markdown renders nested ordered and unordered lists with safe text',()=>{
   assert.equal(markdown('- A\n- B\n1. C\n2. D'),'<ul><li>A</li><li>B</li></ul><ol><li>C</li><li>D</li></ol>');
   assert.match(markdown('```\n1. 不解析\n```'),/<pre><code>1\. 不解析<\/code><\/pre>/);
 });
+
+
+test('markdown supports tasks, strikethrough and separators without parsing code',()=>{
+  const html=markdown('- [ ] 待做\n- [x] 完成\n  - [X] 子任务\n\n~~旧内容~~\n\n---\n\n```\n- [x] 字面\n---\n```');
+  assert.match(html,/<li class="task-list-item"><input type="checkbox" disabled aria-label="未完成"> 待做/);
+  assert.match(html,/<input type="checkbox" disabled checked aria-label="已完成"> 完成/);
+  assert.match(html,/<ul><li class="task-list-item"><input type="checkbox" disabled checked aria-label="已完成"> 子任务/);
+  assert.match(html,/<del>旧内容<\/del>/);assert.match(html,/<hr>/);
+  assert.match(html,/<pre><code>- \[x\] 字面\n---<\/code><\/pre>/);
+  assert.match(markdown('`~~literal~~`'),/<code>~~literal~~<\/code>/);
+  assert.doesNotMatch(markdown('- [x] <script>'),/<script>/);
+});

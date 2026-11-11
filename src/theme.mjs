@@ -14,10 +14,15 @@ export const themeScript = `
     const button = document.querySelector('.theme-toggle');
     if (!button) return;
     apply();
-    button.addEventListener('click', () => {
+    const toggle = () => {
       theme = theme === 'dark' ? 'light' : 'dark';
       apply();
       try { localStorage.setItem(key, theme); } catch {}
+    };
+    button.addEventListener('click', toggle);
+    document.addEventListener('keydown', event => {
+      const target = event.target;
+      if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.repeat && event.key.toLowerCase() === 't' && !target?.isContentEditable && !['INPUT','TEXTAREA','SELECT'].includes(target?.tagName)) { event.preventDefault(); toggle(); }
     });
   });
 })();`;

@@ -1,6 +1,6 @@
 # ZxcxBlog
 
-面向 Cloudflare Workers 的个人博客：公开阅读、Markdown 写作、D1 文章与 R2 图片。首页布局和部分样式参考并改编自 Higan Haozi；原主题版权和 MIT 许可见 `licenses/higan-haozi-MIT.txt`，未复制作者的个人内容。初始名称、简介在 `wrangler.toml` 修改；关于页在 `src/worker.mjs` 修改。项目不包含示例文章。Markdown 当前支持标题、段落、有序和无序嵌套列表、引用、粗斜体、链接、图片、代码块及基础表格；复杂列表、任务列表等尚未支持。
+面向 Cloudflare Workers 的个人博客：公开阅读、Markdown 写作、D1 文章与 R2 图片。首页布局和部分样式参考并改编自 Higan Haozi；原主题版权和 MIT 许可见 `licenses/higan-haozi-MIT.txt`，未复制作者的个人内容。初始名称、简介在 `wrangler.toml` 修改；关于页在 `src/worker.mjs` 修改。项目不包含示例文章。Markdown 当前支持标题、段落、有序和无序嵌套列表、引用、粗斜体、删除线、任务列表、分隔线、链接、图片、代码块及基础表格；复杂多段列表等尚未支持。
 
 ## 部署前必须完成
 
