@@ -1,0 +1,24 @@
+name = "zxcx-blog"
+main = "src/worker.mjs"
+compatibility_date = "2026-11-01"
+workers_dev = true
+preview_urls = false
+
+# Create these resources in your own Cloudflare account and fill in the returned ID.
+[[d1_databases]]
+binding = "DB"
+database_name = "zxcx-blog"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "zxcx-blog-images"
+
+[vars]
+SITE_TITLE = "我的博客"
+SITE_DESCRIPTION = "记录生活与思考。"
+# Set these values before deployment. All admin routes fail closed until configured.
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""
+ADMIN_EMAIL = ""
